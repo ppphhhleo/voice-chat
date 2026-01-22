@@ -1,0 +1,48 @@
+@import "tailwindcss";
+
+:root {
+  --surface: #0e1628;
+  --surface-1: #141e33;
+  --surface-2: #1b2942;
+  --outline: #263857;
+  --accent: #8ab4f8;
+  --accent-strong: #5a9bff;
+  --on-surface: #e7edf7;
+  --muted: #9fb3d4;
+  --card-shadow: 0 12px 28px -18px rgba(0, 0, 0, 0.45);
+  --card-shadow-hover: 0 16px 40px -18px rgba(0, 0, 0, 0.6);
+  --shadow-elevated: 0 16px 40px -18px rgba(0, 0, 0, 0.55);
+}
+
+body {
+  font-family: var(--font-inter), system-ui, -apple-system, "Segoe UI", sans-serif;
+  background: radial-gradient(120% 120% at 10% 10%, #1c2a44 0%, #0e1628 45%, #0a1221 100%);
+  color: var(--on-surface);
+}
+
+a {
+  color: var(--accent);
+}
+
+.card {
+  background: var(--surface-1);
+  border: 1px solid var(--outline);
+  border-radius: 18px;
+  box-shadow: var(--shadow-elevated);
+}
+
+input[type="range"] {
+  accent-color: var(--accent);
+}
+
+button {
+  font-weight: 700;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--outline);
+  border-radius: 999px;
+}
