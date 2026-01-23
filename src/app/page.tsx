@@ -59,7 +59,7 @@ export default function Home() {
       </header>
 
       <div className="grid md:grid-cols-3 gap-4">
-        <AvatarDisplay />
+        <AvatarDisplay traits={traits} isSpeaking={chat.isSpeaking} />
         <div className="md:col-span-2 grid sm:grid-cols-2 gap-4">
           <VoiceSelector voice={voice} onVoiceChange={setVoice} />
           <PersonalitySliders traits={traits} onTraitsChange={setTraits} />
