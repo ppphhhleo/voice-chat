@@ -1,208 +1,226 @@
 "use client";
 
-import { useRef, useMemo } from "react";
-import { Canvas, useFrame } from "@react-three/fiber";
-import { OrbitControls } from "@react-three/drei";
-import * as THREE from "three";
+import { useEffect, useRef, useMemo, useCallback, useState } from "react";
 import { BigFive } from "@/types";
+import { SAMPLE_RATE } from "@/constants";
+import { AudioStreamHandler } from "@/hooks/useVoiceChat";
+import type { TalkingHead } from "@met4citizen/talkinghead";
+
+export type AnimationPreset = "idle" | "wave" | "thinking";
 
 interface AvatarDisplayProps {
   traits: BigFive;
-  isSpeaking: boolean;
+  onStreamReady: (handler: AudioStreamHandler | null) => void;
 }
 
-function Avatar({ traits, isSpeaking }: AvatarDisplayProps) {
-  const groupRef = useRef<THREE.Group>(null);
-  const headRef = useRef<THREE.Mesh>(null);
-  const bodyRef = useRef<THREE.Mesh>(null);
-  const leftArmRef = useRef<THREE.Mesh>(null);
-  const rightArmRef = useRef<THREE.Mesh>(null);
-  const mouthRef = useRef<THREE.Mesh>(null);
-  const glowRef = useRef<THREE.Mesh>(null);
+// Map Big Five traits to TalkingHead mood
+function traitsToMood(traits: BigFive): string {
+  const { extraversion, agreeableness, neuroticism, openness } = traits;
 
-  // Derive visual style from personality traits
-  const avatarStyle = useMemo(() => {
-    const e = traits.extraversion / 100;
-    const a = traits.agreeableness / 100;
-    const o = traits.openness / 100;
-    const n = traits.neuroticism / 100;
-    const c = traits.conscientiousness / 100;
-
-    // Hue: extraversion = warm (orange/red), introverted = cool (blue/purple)
-    const hue = THREE.MathUtils.lerp(0.6, 0.06, e);
-    // Saturation: openness increases color vibrancy
-    const sat = THREE.MathUtils.lerp(0.25, 0.75, o);
-    // Lightness: agreeableness = softer/lighter
-    const light = THREE.MathUtils.lerp(0.35, 0.55, a);
-
-    const bodyColor = new THREE.Color().setHSL(hue, sat, light);
-    const headColor = new THREE.Color().setHSL(hue, sat * 0.7, light + 0.12);
-
-    // Animation speed: extraversion = more energetic idle
-    const animSpeed = THREE.MathUtils.lerp(0.6, 1.8, e);
-    // Sway amplitude: neuroticism = more fidgety
-    const swayAmount = THREE.MathUtils.lerp(0.015, 0.1, n);
-    // Posture tilt: conscientiousness = upright
-    const postureOffset = THREE.MathUtils.lerp(-0.12, 0.12, c);
-    // Overall scale: extraversion = larger presence
-    const scale = THREE.MathUtils.lerp(0.88, 1.08, e);
-
-    return { bodyColor, headColor, animSpeed, swayAmount, postureOffset, scale };
-  }, [traits]);
-
-  useFrame(({ clock }) => {
-    const t = clock.getElapsedTime();
-    const { animSpeed, swayAmount, postureOffset, scale } = avatarStyle;
-
-    if (groupRef.current) {
-      // Idle floating bob
-      groupRef.current.position.y = Math.sin(t * animSpeed) * 0.06;
-      // Gentle sway
-      groupRef.current.rotation.z = Math.sin(t * animSpeed * 0.7) * swayAmount;
-      groupRef.current.scale.setScalar(scale);
-    }
-
-    if (headRef.current) {
-      // Subtle head tilt
-      headRef.current.rotation.z = Math.sin(t * animSpeed * 0.5) * 0.04;
-      headRef.current.rotation.x = postureOffset * 0.08;
-      // Speaking: head bob
-      if (isSpeaking) {
-        headRef.current.position.y = 1.05 + Math.sin(t * 7) * 0.025;
-      } else {
-        headRef.current.position.y = 1.05;
-      }
-    }
-
-    if (bodyRef.current) {
-      // Breathing
-      const breathe = 1 + Math.sin(t * animSpeed * 1.2) * 0.012;
-      bodyRef.current.scale.set(1, breathe, 1);
-      bodyRef.current.position.y = postureOffset * 0.2;
-    }
-
-    // Arm swing
-    if (leftArmRef.current) {
-      leftArmRef.current.rotation.z = 0.2 + Math.sin(t * animSpeed * 0.8) * swayAmount * 1.5;
-      if (isSpeaking) {
-        leftArmRef.current.rotation.z += Math.sin(t * 5.5) * 0.1;
-      }
-    }
-    if (rightArmRef.current) {
-      rightArmRef.current.rotation.z = -0.2 - Math.sin(t * animSpeed * 0.8 + 1) * swayAmount * 1.5;
-      if (isSpeaking) {
-        rightArmRef.current.rotation.z -= Math.sin(t * 5.5 + 0.5) * 0.1;
-      }
-    }
-
-    // Mouth open/close when speaking
-    if (mouthRef.current) {
-      if (isSpeaking) {
-        const open = (Math.sin(t * 11) + 1) * 0.5;
-        mouthRef.current.scale.y = THREE.MathUtils.lerp(0.5, 1.6, open);
-      } else {
-        mouthRef.current.scale.y = 0.6;
-      }
-    }
-
-    // Glow ring pulse
-    if (glowRef.current) {
-      if (isSpeaking) {
-        glowRef.current.visible = true;
-        const pulse = (Math.sin(t * 4) + 1) * 0.25 + 0.3;
-        (glowRef.current.material as THREE.MeshBasicMaterial).opacity = pulse;
-        glowRef.current.rotation.z = t * 0.5;
-      } else {
-        glowRef.current.visible = false;
-      }
-    }
-  });
-
-  const { bodyColor, headColor } = avatarStyle;
-
-  return (
-    <group ref={groupRef}>
-      {/* Body */}
-      <mesh ref={bodyRef} position={[0, 0, 0]}>
-        <capsuleGeometry args={[0.32, 0.65, 16, 16]} />
-        <meshStandardMaterial color={bodyColor} roughness={0.4} metalness={0.1} />
-      </mesh>
-
-      {/* Head */}
-      <mesh ref={headRef} position={[0, 1.05, 0]}>
-        <sphereGeometry args={[0.3, 32, 32]} />
-        <meshStandardMaterial color={headColor} roughness={0.3} metalness={0.05} />
-      </mesh>
-
-      {/* Eyes */}
-      <mesh position={[-0.1, 1.12, 0.26]}>
-        <sphereGeometry args={[0.045, 16, 16]} />
-        <meshStandardMaterial color="#0f1729" roughness={0.1} metalness={0.4} />
-      </mesh>
-      <mesh position={[0.1, 1.12, 0.26]}>
-        <sphereGeometry args={[0.045, 16, 16]} />
-        <meshStandardMaterial color="#0f1729" roughness={0.1} metalness={0.4} />
-      </mesh>
-
-      {/* Eye highlights */}
-      <mesh position={[-0.09, 1.135, 0.3]}>
-        <sphereGeometry args={[0.015, 8, 8]} />
-        <meshBasicMaterial color="#ffffff" />
-      </mesh>
-      <mesh position={[0.11, 1.135, 0.3]}>
-        <sphereGeometry args={[0.015, 8, 8]} />
-        <meshBasicMaterial color="#ffffff" />
-      </mesh>
-
-      {/* Mouth */}
-      <mesh ref={mouthRef} position={[0, 0.95, 0.28]}>
-        <sphereGeometry args={[0.035, 16, 16]} />
-        <meshStandardMaterial color="#1a1035" roughness={0.5} />
-      </mesh>
-
-      {/* Left Arm */}
-      <mesh ref={leftArmRef} position={[-0.47, 0.05, 0]}>
-        <capsuleGeometry args={[0.07, 0.45, 8, 8]} />
-        <meshStandardMaterial color={bodyColor} roughness={0.4} metalness={0.1} />
-      </mesh>
-
-      {/* Right Arm */}
-      <mesh ref={rightArmRef} position={[0.47, 0.05, 0]}>
-        <capsuleGeometry args={[0.07, 0.45, 8, 8]} />
-        <meshStandardMaterial color={bodyColor} roughness={0.4} metalness={0.1} />
-      </mesh>
-
-      {/* Speaking glow ring */}
-      <mesh ref={glowRef} position={[0, 0.4, 0]} rotation={[Math.PI / 2, 0, 0]} visible={false}>
-        <ringGeometry args={[0.55, 0.6, 32]} />
-        <meshBasicMaterial color="#8ab4f8" transparent opacity={0.5} side={THREE.DoubleSide} />
-      </mesh>
-    </group>
-  );
+  if (neuroticism > 75) return "sad";
+  if (extraversion > 70 && agreeableness > 60) return "happy";
+  if (extraversion > 70 && agreeableness < 40) return "angry";
+  if (agreeableness > 75) return "love";
+  if (openness > 75 && extraversion > 50) return "happy";
+  if (neuroticism > 60 && agreeableness < 40) return "angry";
+  if (extraversion < 30 && neuroticism > 50) return "fear";
+  return "neutral";
 }
 
-export function AvatarDisplay({ traits, isSpeaking }: AvatarDisplayProps) {
+const ANIMATION_PRESETS: { id: AnimationPreset; label: string; desc: string }[] = [
+  { id: "idle", label: "Idle", desc: "Natural stance" },
+  { id: "wave", label: "Wave", desc: "Friendly greeting" },
+  { id: "thinking", label: "Think", desc: "Contemplating" },
+];
+
+export function AvatarDisplay({ traits, onStreamReady }: AvatarDisplayProps) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const headRef = useRef<TalkingHead | null>(null);
+  const initRef = useRef(false);
+  const [activePreset, setActivePreset] = useState<AnimationPreset>("idle");
+  const [isLoading, setIsLoading] = useState(true);
+
+  const mood = useMemo(() => traitsToMood(traits), [traits]);
+
+  // Create the audio stream handler for TalkingHead
+  const createStreamHandler = useCallback((): AudioStreamHandler => {
+    return {
+      onStart: () => {
+        const head = headRef.current;
+        if (head) {
+          head.streamStart({ sampleRate: SAMPLE_RATE, lipsyncLang: "en" });
+        }
+      },
+      onAudio: (pcm16: Int16Array) => {
+        const head = headRef.current;
+        if (head) {
+          head.streamAudio({ audio: pcm16 });
+        }
+      },
+      onEnd: () => {
+        const head = headRef.current;
+        if (head) {
+          head.streamNotifyEnd();
+        }
+      },
+    };
+  }, []);
+
+  // Play animation preset
+  const playPreset = useCallback(async (preset: AnimationPreset) => {
+    const head = headRef.current;
+    if (!head) return;
+
+    setActivePreset(preset);
+
+    switch (preset) {
+      case "idle":
+        head.stopSpeaking();
+        break;
+      case "wave":
+        head.setMood("happy");
+        head.playGesture("handup", 4, false, 800);
+        break;
+      case "thinking":
+        head.setMood("neutral");
+        head.playGesture("index", 4, false, 800);
+        break;
+    }
+  }, []);
+
+  // Initialize TalkingHead
+  useEffect(() => {
+    if (initRef.current || !containerRef.current) return;
+    initRef.current = true;
+
+    let disposed = false;
+
+    async function init() {
+      try {
+        const { TalkingHead: TH } = await import("@met4citizen/talkinghead");
+
+        if (disposed || !containerRef.current) return;
+
+        const head = new TH(containerRef.current, {
+          ttsEndpoint: null,
+          lipsyncModules: [],
+          cameraView: "full",
+          cameraDistance: 0.4,
+          cameraRotateEnable: true,
+          cameraPanEnable: false,
+          avatarMood: "neutral",
+          modelFPS: 30,
+          modelPixelRatio: Math.min(window.devicePixelRatio, 2),
+        });
+
+        // Load lipsync module from public/ to bypass webpack bundling issues
+        // TalkingHead uses import('./lipsync-en.mjs') internally which fails after bundling
+        try {
+          // @ts-expect-error runtime browser import from public URL
+          const lipsyncModule = await import(/* webpackIgnore: true */ "/modules/lipsync-en.mjs");
+          (head as unknown as { lipsync: Record<string, unknown> }).lipsync["en"] =
+            new lipsyncModule.LipsyncEn();
+        } catch (e) {
+          console.warn("Failed to load lipsync module:", e);
+        }
+
+        await head.showAvatar(
+          {
+            url: "/avatars/brunette.glb",
+            body: "F",
+            avatarMood: "neutral",
+            lipsyncLang: "en",
+          },
+          (ev: ProgressEvent) => {
+            if (ev.lengthComputable) {
+              const pct = Math.round((ev.loaded / ev.total) * 100);
+              console.log(`Avatar loading: ${pct}%`);
+            }
+          }
+        );
+
+        if (disposed) return;
+
+        headRef.current = head;
+        setIsLoading(false);
+        onStreamReady(createStreamHandler());
+      } catch (err) {
+        console.error("TalkingHead init failed:", err);
+        setIsLoading(false);
+      }
+    }
+
+    init();
+
+    return () => {
+      disposed = true;
+      onStreamReady(null);
+      if (headRef.current) {
+        headRef.current.stop();
+        headRef.current = null;
+      }
+    };
+  }, [onStreamReady, createStreamHandler]);
+
+  // Update mood when personality traits change
+  useEffect(() => {
+    const head = headRef.current;
+    if (head) {
+      try {
+        head.setMood(mood);
+      } catch {
+        // Mood may not be available yet
+      }
+    }
+  }, [mood]);
+
   return (
-    <div className="card overflow-hidden aspect-square md:aspect-auto md:min-h-[280px] relative">
-      <Canvas
-        camera={{ position: [0, 0.6, 2.8], fov: 42 }}
-        style={{ background: "transparent" }}
-      >
-        <ambientLight intensity={0.5} />
-        <directionalLight position={[3, 5, 4]} intensity={0.9} />
-        <directionalLight position={[-2, 3, -3]} intensity={0.25} color="#8ab4f8" />
-        <pointLight position={[0, -1, 2]} intensity={0.3} color="#5a9bff" />
-        <Avatar traits={traits} isSpeaking={isSpeaking} />
-        <OrbitControls
-          enableZoom={false}
-          enablePan={false}
-          minPolarAngle={Math.PI / 3}
-          maxPolarAngle={Math.PI / 1.8}
-        />
-      </Canvas>
-      <div className="absolute bottom-3 left-3 text-[10px] text-[var(--muted)] pointer-events-none uppercase tracking-widest">
-        3D Avatar
+    <div className="card overflow-hidden relative flex flex-col">
+      {/* Avatar container */}
+      <div
+        ref={containerRef}
+        className="w-full flex-1 min-h-[400px]"
+      />
+
+      {/* Loading overlay */}
+      {isLoading && (
+        <div className="absolute inset-0 flex items-center justify-center bg-[var(--surface-1)]">
+          <div className="flex flex-col items-center gap-3">
+            <div className="w-8 h-8 border-2 border-[var(--accent)] border-t-transparent rounded-full animate-spin" />
+            <span className="text-xs text-[var(--muted)]">Loading avatar...</span>
+          </div>
+        </div>
+      )}
+
+      {/* Top labels */}
+      <div className="absolute top-3 left-3 flex items-center gap-2">
+        <span className="text-[10px] uppercase tracking-widest text-[var(--muted)] bg-[var(--surface-1)]/80 backdrop-blur-sm px-2 py-0.5 rounded-full">
+          3D Avatar
+        </span>
+        <span className="text-[10px] text-[var(--muted)] bg-[var(--surface-1)]/80 backdrop-blur-sm px-2 py-0.5 rounded-full capitalize">
+          {mood}
+        </span>
       </div>
+
+      {/* Animation presets */}
+      {!isLoading && (
+        <div className="absolute bottom-3 left-3 right-3 flex gap-1.5 justify-center">
+          {ANIMATION_PRESETS.map((preset) => (
+            <button
+              key={preset.id}
+              onClick={() => playPreset(preset.id)}
+              title={preset.desc}
+              className={`text-[10px] font-semibold px-2.5 py-1 rounded-full transition-all ${
+                activePreset === preset.id
+                  ? "bg-[var(--accent)] text-[var(--surface)] shadow-[0_4px_12px_rgba(90,155,255,0.4)]"
+                  : "bg-[var(--surface-1)]/80 backdrop-blur-sm text-[var(--muted)] hover:text-[var(--on-surface)] hover:bg-[var(--surface-2)]"
+              }`}
+            >
+              {preset.label}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

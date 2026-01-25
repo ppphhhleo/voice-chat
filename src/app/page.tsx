@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { BigFive, Voice } from "@/types";
-import { useVoiceChat } from "@/hooks/useVoiceChat";
+import { useVoiceChat, AudioStreamHandler } from "@/hooks/useVoiceChat";
 import { generateSystemPrompt } from "@/utils/personality";
 import { VoiceSelector } from "@/components/VoiceSelector";
 import { PersonalitySliders } from "@/components/PersonalitySliders";
@@ -21,10 +21,15 @@ export default function Home() {
     agreeableness: 50,
     neuroticism: 50,
   });
+  const [audioHandler, setAudioHandler] = useState<AudioStreamHandler | null>(null);
 
   const systemPrompt = generateSystemPrompt(traits);
 
-  const chat = useVoiceChat({ voice, systemPrompt });
+  const chat = useVoiceChat({ voice, systemPrompt, audioStreamHandler: audioHandler });
+
+  const handleStreamReady = useCallback((handler: AudioStreamHandler | null) => {
+    setAudioHandler(handler);
+  }, []);
 
   return (
     <main className="max-w-5xl mx-auto px-5 py-8 space-y-6">
@@ -32,7 +37,7 @@ export default function Home() {
         <div>
           <p className="text-xs uppercase tracking-[0.3em] text-[var(--muted)]">Realtime Voice</p>
           <h1 className="text-3xl font-semibold leading-tight">Grok Voice Chat</h1>
-          <p className="text-sm text-[var(--muted)]">Material-inspired surfaces with personality-aware responses.</p>
+          <p className="text-sm text-[var(--muted)]">Full-body 3D avatar with lip-sync and personality-driven expressions.</p>
         </div>
         <div className="flex items-center gap-2">
           <span
@@ -44,23 +49,25 @@ export default function Home() {
           >
             <span
               className={`w-2.5 h-2.5 rounded-full ${
-                chat.isConnected ? "bg-[var(--accent)]" : "bg-muted"
+                chat.isConnected ? "bg-[var(--accent)]" : "bg-[var(--muted)]"
               }`}
             />
             {chat.isConnected ? "Live" : "Offline"}
           </span>
           <span className="text-xs text-[var(--muted)]">
             {chat.isListening && !chat.userSpeaking && !chat.isSpeaking && "Listening"}
-            {chat.userSpeaking && "You’re speaking"}
+            {chat.userSpeaking && "You're speaking"}
             {chat.isSpeaking && "Grok is replying"}
             {!chat.isConnected && "Awaiting connection"}
           </span>
         </div>
       </header>
 
-      <div className="grid md:grid-cols-3 gap-4">
-        <AvatarDisplay traits={traits} isSpeaking={chat.isSpeaking} />
-        <div className="md:col-span-2 grid sm:grid-cols-2 gap-4">
+      <div className="grid md:grid-cols-5 gap-4">
+        <div className="md:col-span-2">
+          <AvatarDisplay traits={traits} onStreamReady={handleStreamReady} />
+        </div>
+        <div className="md:col-span-3 flex flex-col gap-4">
           <VoiceSelector voice={voice} onVoiceChange={setVoice} />
           <PersonalitySliders traits={traits} onTraitsChange={setTraits} />
         </div>

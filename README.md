@@ -1,19 +1,35 @@
 # Grok Voice Chat
-A tiny Next.js + FastAPI setup for real‑time, personality‑tuned voice chat with xAI Grok.
+
+Real-time voice chat with xAI Grok featuring a 3D avatar with lip-sync and personality-driven expressions.
 
 ## Quick Start
-1) (Optional) Create a Python env with conda: `conda create -n grok-voice python=3.11 && conda activate grok-voice`
-2) Install Python deps: `pip install -r requirements.txt`
-3) Copy env file for API: `cp .env.local.example .env.local` then set `XAI_API_KEY`
-4) Run proxy (port 8000): `python server.py`
-5) Send a quick test message + save audio: `python text_client.py "hello how are you"`
-6) Install node deps (once): `npm install`
-7) Start the app (port 3030): `npm run dev`
-8) Open http://localhost:3030, click **Start Conversation**, allow mic.
 
-### Text client
-- CLI helper to send a text prompt and save the reply audio: `python text_client.py "hello world"` (writes `reply.wav`).
+1. Copy env file: `cp .env.local.example .env.local` and set `XAI_API_KEY`
+2. Install dependencies: `npm install`
+3. Start the app: `npm run dev`
+4. Open http://localhost:3000, click **Start Conversation**, allow mic
+
+## Architecture
+
+```
+Browser ──WebSocket──> xAI Realtime API (wss://api.x.ai/v1/realtime)
+   │
+   └──> Next.js API (/api/token) generates ephemeral tokens
+```
+
+- **Direct connection**: Browser connects directly to xAI using ephemeral tokens (no proxy needed)
+- **Secure**: API key stays server-side; only short-lived tokens are sent to browser
+- **Avatar**: TalkingHead library provides 3D avatar with lip-sync and expressions
+
+## Features
+
+- Real-time voice conversation with Grok
+- 3D avatar with lip-sync synchronized to audio responses
+- Personality sliders (Big Five traits) that affect avatar mood and AI behavior
+- Multiple voice options
+- Text input fallback
 
 ## Notes
-- Requires mic access; best in Chromium-based browsers.
-- If the connection fails, ensure the server proxy is running and the api key is valid.
+
+- Requires microphone access; works best in Chromium-based browsers
+- Avatar model loaded from `/public/avatars/brunette.glb`

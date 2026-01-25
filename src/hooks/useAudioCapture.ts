@@ -1,6 +1,9 @@
 import { useRef, useCallback, MutableRefObject } from "react";
 import { SAMPLE_RATE } from "@/constants";
 
+// Track which AudioContexts have the worklet registered (persists across re-renders)
+const registeredContexts = new WeakSet<AudioContext>();
+
 export function useAudioCapture(
   audioContextRef: MutableRefObject<AudioContext | null>,
   onAudioData: (base64: string) => void
@@ -21,33 +24,32 @@ export function useAudioCapture(
         await ctx.resume();
       }
 
-      const workletCode = `
-      class AudioProcessor extends AudioWorkletProcessor {
-        process(inputs) {
-          const input = inputs[0];
-          if (input && input[0]) {
-            const samples = input[0];
-            const pcm16 = new Int16Array(samples.length);
-            for (let i = 0; i < samples.length; i++) {
-              pcm16[i] = Math.max(-32768, Math.min(32767, Math.floor(samples[i] * 32768)));
+      // Only register the worklet once per AudioContext
+      if (!registeredContexts.has(ctx)) {
+        const workletCode = `
+        class AudioProcessor extends AudioWorkletProcessor {
+          process(inputs) {
+            const input = inputs[0];
+            if (input && input[0]) {
+              const samples = input[0];
+              const pcm16 = new Int16Array(samples.length);
+              for (let i = 0; i < samples.length; i++) {
+                pcm16[i] = Math.max(-32768, Math.min(32767, Math.floor(samples[i] * 32768)));
+              }
+              this.port.postMessage(pcm16.buffer, [pcm16.buffer]);
             }
-            this.port.postMessage(pcm16.buffer, [pcm16.buffer]);
+            return true;
           }
-          return true;
         }
-      }
-      registerProcessor('audio-processor', AudioProcessor);
-    `;
+        registerProcessor('audio-processor', AudioProcessor);
+      `;
 
-      const blob = new Blob([workletCode], { type: "application/javascript" });
-      const url = URL.createObjectURL(blob);
-
-      try {
+        const blob = new Blob([workletCode], { type: "application/javascript" });
+        const url = URL.createObjectURL(blob);
         await ctx.audioWorklet.addModule(url);
-      } catch {
-        // Module may already be registered
+        URL.revokeObjectURL(url);
+        registeredContexts.add(ctx);
       }
-      URL.revokeObjectURL(url);
 
       const source = ctx.createMediaStreamSource(stream);
       const workletNode = new AudioWorkletNode(ctx, "audio-processor");
