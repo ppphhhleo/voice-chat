@@ -4,13 +4,11 @@ import { useState, useCallback, useRef, useMemo } from "react";
 import { BigFive, Voice } from "@/types";
 import { useVoiceChat, AudioStreamHandler } from "@/hooks/useVoiceChat";
 import { generateSystemPrompt } from "@/utils/personality";
-import { VoiceSelector } from "@/components/VoiceSelector";
-import { PersonalitySliders } from "@/components/PersonalitySliders";
-import { SystemPromptPreview } from "@/components/SystemPromptPreview";
 import { ConnectionControls } from "@/components/ConnectionControls";
 import { ChatMessages } from "@/components/ChatMessages";
 import { TextInput } from "@/components/TextInput";
-import { AvatarDisplay } from "@/components/AvatarDisplay";
+import { CharacterGallery } from "@/components/CharacterGallery";
+import { Character, CHARACTERS } from "@/characters";
 import {
   useGestureController,
   createDefaultAnalyzers,
@@ -19,15 +17,13 @@ import {
 import type { TalkingHead } from "@met4citizen/talkinghead";
 
 export default function Home() {
-  const [voice, setVoice] = useState<Voice>("Ara");
-  const [traits, setTraits] = useState<BigFive>({
-    openness: 50,
-    conscientiousness: 50,
-    extraversion: 50,
-    agreeableness: 50,
-    neuroticism: 50,
-  });
+  // Start with Alex as default character
+  const [selectedCharacter, setSelectedCharacter] = useState<Character>(CHARACTERS.alex);
   const [audioHandler, setAudioHandler] = useState<AudioStreamHandler | null>(null);
+
+  // Extract voice and traits from selected character
+  const voice = selectedCharacter.voice;
+  const traits = selectedCharacter.personality;
 
   // TalkingHead reference for gesture control
   const headRef = useRef<TalkingHead | null>(null);
@@ -42,7 +38,9 @@ export default function Home() {
     traits,
     config: {
       enabled: true,
-      minGapMs: 4000,
+      minGapMs: selectedCharacter.gestureBehavior.intervalWords
+        ? (selectedCharacter.gestureBehavior.intervalWords / 2.5) * 1000
+        : 4000,
       usePersonalityModulation: true,
     },
   });
@@ -86,17 +84,23 @@ export default function Home() {
     setAudioHandler(wrappedHandler);
   }, [onSpeechStart, onSpeechEnd, resetGestures]);
 
+  const handleCharacterChange = useCallback((character: Character) => {
+    setSelectedCharacter(character);
+    // Reset gestures when switching characters
+    resetGestures();
+  }, [resetGestures]);
+
   const handleHeadReady = useCallback((head: TalkingHead | null) => {
     headRef.current = head;
   }, []);
 
   return (
-    <main className="max-w-5xl mx-auto px-5 py-8 space-y-6">
+    <main className="max-w-7xl mx-auto px-5 py-8 space-y-6">
       <header className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <p className="text-xs uppercase tracking-[0.3em] text-[var(--muted)]">Realtime Voice</p>
           <h1 className="text-3xl font-semibold leading-tight">Grok Voice Chat</h1>
-          <p className="text-sm text-[var(--muted)]">Full-body 3D avatar with lip-sync and personality-driven gestures.</p>
+          <p className="text-sm text-[var(--muted)]">Choose a character and start a conversation with unique personalities.</p>
         </div>
         <div className="flex items-center gap-2">
           <span
@@ -122,22 +126,15 @@ export default function Home() {
         </div>
       </header>
 
-      <div className="grid md:grid-cols-5 gap-4">
-        <div className="md:col-span-2">
-          <AvatarDisplay
-            traits={traits}
-            onStreamReady={handleStreamReady}
-            onHeadReady={handleHeadReady}
-          />
-        </div>
-        <div className="md:col-span-3 flex flex-col gap-4">
-          <VoiceSelector voice={voice} onVoiceChange={setVoice} />
-          <PersonalitySliders traits={traits} onTraitsChange={setTraits} />
-        </div>
-      </div>
+      {/* Character Gallery */}
+      <CharacterGallery
+        onCharacterChange={handleCharacterChange}
+        onStreamReady={handleStreamReady}
+        onHeadReady={handleHeadReady}
+        initialCharacterId="alex"
+      />
 
-      <SystemPromptPreview prompt={systemPrompt} />
-
+      {/* Connection Controls */}
       <ConnectionControls
         isConnected={chat.isConnected}
         isListening={chat.isListening}
@@ -148,14 +145,16 @@ export default function Home() {
         onStop={chat.stopConversation}
       />
 
-      <ChatMessages messages={chat.messages} />
-
-      <TextInput
-        value={chat.input}
-        onChange={chat.setInput}
-        onSend={chat.sendTextMessage}
-        disabled={!chat.isConnected}
-      />
+      {/* Chat Interface */}
+      <div className="space-y-4">
+        <ChatMessages messages={chat.messages} />
+        <TextInput
+          value={chat.input}
+          onChange={chat.setInput}
+          onSend={chat.sendTextMessage}
+          disabled={!chat.isConnected}
+        />
+      </div>
     </main>
   );
 }

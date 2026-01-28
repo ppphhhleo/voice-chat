@@ -12,6 +12,8 @@ interface AvatarDisplayProps {
   traits: BigFive;
   onStreamReady: (handler: AudioStreamHandler | null) => void;
   onHeadReady?: (head: TalkingHead | null) => void;
+  avatarUrl?: string; // Optional custom avatar URL (default: /avatars/brunette.glb)
+  initialMood?: string; // Optional initial mood (default: from traits)
 }
 
 // Map Big Five traits to TalkingHead mood
@@ -34,14 +36,20 @@ const ANIMATION_PRESETS: { id: AnimationPreset; label: string; desc: string }[] 
   { id: "thinking", label: "Think", desc: "Contemplating" },
 ];
 
-export function AvatarDisplay({ traits, onStreamReady, onHeadReady }: AvatarDisplayProps) {
+export function AvatarDisplay({
+  traits,
+  onStreamReady,
+  onHeadReady,
+  avatarUrl = '/avatars/brunette.glb',
+  initialMood
+}: AvatarDisplayProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const headRef = useRef<TalkingHead | null>(null);
   const initRef = useRef(false);
   const [activePreset, setActivePreset] = useState<AnimationPreset>("idle");
   const [isLoading, setIsLoading] = useState(true);
 
-  const mood = useMemo(() => traitsToMood(traits), [traits]);
+  const mood = useMemo(() => initialMood || traitsToMood(traits), [initialMood, traits]);
 
   // Track audio timing for word-based lipsync
   const audioTimeRef = useRef(0);
@@ -183,9 +191,9 @@ export function AvatarDisplay({ traits, onStreamReady, onHeadReady }: AvatarDisp
 
         await head.showAvatar(
           {
-            url: "/avatars/brunette.glb",
+            url: avatarUrl,
             body: "F",
-            avatarMood: "neutral",
+            avatarMood: initialMood || "neutral",
             lipsyncLang: "en",
           },
           (ev: ProgressEvent) => {
