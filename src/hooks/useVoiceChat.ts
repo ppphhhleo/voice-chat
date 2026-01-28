@@ -16,6 +16,7 @@ interface UseVoiceChatOptions {
   voice: Voice;
   systemPrompt: string;
   audioStreamHandler?: AudioStreamHandler | null;
+  onTranscript?: (text: string) => void; // Called with accumulated assistant transcript
 }
 
 async function fetchEphemeralToken(): Promise<string> {
@@ -27,7 +28,7 @@ async function fetchEphemeralToken(): Promise<string> {
   return data.token;
 }
 
-export function useVoiceChat({ voice, systemPrompt, audioStreamHandler }: UseVoiceChatOptions) {
+export function useVoiceChat({ voice, systemPrompt, audioStreamHandler, onTranscript }: UseVoiceChatOptions) {
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
   const [isConnected, setIsConnected] = useState(false);
@@ -42,6 +43,10 @@ export function useVoiceChat({ voice, systemPrompt, audioStreamHandler }: UseVoi
   const responseActiveRef = useRef(false);
   const audioStreamHandlerRef = useRef(audioStreamHandler);
   audioStreamHandlerRef.current = audioStreamHandler;
+
+  const onTranscriptRef = useRef(onTranscript);
+  onTranscriptRef.current = onTranscript;
+  const currentTranscriptRef = useRef("");
 
   const { isSpeaking: isSpeakingFallback, enqueueAudio, audioContextRef } = useAudioPlayback();
 
@@ -117,6 +122,10 @@ export function useVoiceChat({ voice, systemPrompt, audioStreamHandler }: UseVoi
       case "response.text.delta": {
         const textDelta = data.delta;
         if (textDelta) {
+          // Update accumulated transcript and notify
+          currentTranscriptRef.current += textDelta;
+          onTranscriptRef.current?.(currentTranscriptRef.current);
+
           setMessages((prev) => {
             const last = prev[prev.length - 1];
             if (last?.role === "assistant") {
@@ -165,6 +174,7 @@ export function useVoiceChat({ voice, systemPrompt, audioStreamHandler }: UseVoi
           handler.onEnd();
         }
         responseActiveRef.current = false;
+        currentTranscriptRef.current = ""; // Reset for next response
         setTimeout(() => setIsSpeaking(false), 500);
         break;
       }

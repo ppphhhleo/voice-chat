@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef, useMemo } from "react";
 import { BigFive, Voice } from "@/types";
 import { useVoiceChat, AudioStreamHandler } from "@/hooks/useVoiceChat";
 import { generateSystemPrompt } from "@/utils/personality";
@@ -11,6 +11,12 @@ import { ConnectionControls } from "@/components/ConnectionControls";
 import { ChatMessages } from "@/components/ChatMessages";
 import { TextInput } from "@/components/TextInput";
 import { AvatarDisplay } from "@/components/AvatarDisplay";
+import {
+  useGestureController,
+  createDefaultAnalyzers,
+  type GestureAnalyzer,
+} from "@/gestures";
+import type { TalkingHead } from "@met4citizen/talkinghead";
 
 export default function Home() {
   const [voice, setVoice] = useState<Voice>("Ara");
@@ -23,12 +29,63 @@ export default function Home() {
   });
   const [audioHandler, setAudioHandler] = useState<AudioStreamHandler | null>(null);
 
+  // TalkingHead reference for gesture control
+  const headRef = useRef<TalkingHead | null>(null);
+
+  // Create analyzers once (memoized)
+  const analyzers = useMemo<GestureAnalyzer[]>(() => createDefaultAnalyzers(), []);
+
+  // Gesture controller
+  const { analyzeText, onSpeechStart, onSpeechEnd, reset: resetGestures } = useGestureController({
+    headRef,
+    analyzers,
+    traits,
+    config: {
+      enabled: true,
+      minGapMs: 4000,
+      usePersonalityModulation: true,
+    },
+  });
+
   const systemPrompt = generateSystemPrompt(traits);
 
-  const chat = useVoiceChat({ voice, systemPrompt, audioStreamHandler: audioHandler });
+  // Transcript callback for gesture analysis
+  const handleTranscript = useCallback(
+    (text: string) => {
+      analyzeText(text);
+    },
+    [analyzeText]
+  );
+
+  const chat = useVoiceChat({
+    voice,
+    systemPrompt,
+    audioStreamHandler: audioHandler,
+    onTranscript: handleTranscript,
+  });
 
   const handleStreamReady = useCallback((handler: AudioStreamHandler | null) => {
     setAudioHandler(handler);
+    if (handler) {
+      // Wrap the original handlers to also notify gesture controller
+      const wrappedHandler: AudioStreamHandler = {
+        onStart: () => {
+          handler.onStart();
+          onSpeechStart();
+        },
+        onAudio: handler.onAudio,
+        onEnd: () => {
+          handler.onEnd();
+          onSpeechEnd();
+          resetGestures();
+        },
+      };
+      setAudioHandler(wrappedHandler);
+    }
+  }, [onSpeechStart, onSpeechEnd, resetGestures]);
+
+  const handleHeadReady = useCallback((head: TalkingHead | null) => {
+    headRef.current = head;
   }, []);
 
   return (
@@ -37,7 +94,7 @@ export default function Home() {
         <div>
           <p className="text-xs uppercase tracking-[0.3em] text-[var(--muted)]">Realtime Voice</p>
           <h1 className="text-3xl font-semibold leading-tight">Grok Voice Chat</h1>
-          <p className="text-sm text-[var(--muted)]">Full-body 3D avatar with lip-sync and personality-driven expressions.</p>
+          <p className="text-sm text-[var(--muted)]">Full-body 3D avatar with lip-sync and personality-driven gestures.</p>
         </div>
         <div className="flex items-center gap-2">
           <span
@@ -65,7 +122,11 @@ export default function Home() {
 
       <div className="grid md:grid-cols-5 gap-4">
         <div className="md:col-span-2">
-          <AvatarDisplay traits={traits} onStreamReady={handleStreamReady} />
+          <AvatarDisplay
+            traits={traits}
+            onStreamReady={handleStreamReady}
+            onHeadReady={handleHeadReady}
+          />
         </div>
         <div className="md:col-span-3 flex flex-col gap-4">
           <VoiceSelector voice={voice} onVoiceChange={setVoice} />

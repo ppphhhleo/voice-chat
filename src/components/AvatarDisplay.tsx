@@ -11,6 +11,7 @@ export type AnimationPreset = "idle" | "wave" | "thinking";
 interface AvatarDisplayProps {
   traits: BigFive;
   onStreamReady: (handler: AudioStreamHandler | null) => void;
+  onHeadReady?: (head: TalkingHead | null) => void;
 }
 
 // Map Big Five traits to TalkingHead mood
@@ -33,7 +34,7 @@ const ANIMATION_PRESETS: { id: AnimationPreset; label: string; desc: string }[] 
   { id: "thinking", label: "Think", desc: "Contemplating" },
 ];
 
-export function AvatarDisplay({ traits, onStreamReady }: AvatarDisplayProps) {
+export function AvatarDisplay({ traits, onStreamReady, onHeadReady }: AvatarDisplayProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const headRef = useRef<TalkingHead | null>(null);
   const initRef = useRef(false);
@@ -144,6 +145,7 @@ export function AvatarDisplay({ traits, onStreamReady }: AvatarDisplayProps) {
         headRef.current = head;
         setIsLoading(false);
         onStreamReady(createStreamHandler());
+        onHeadReady?.(head);
       } catch (err) {
         console.error("TalkingHead init failed:", err);
         setIsLoading(false);
@@ -155,12 +157,13 @@ export function AvatarDisplay({ traits, onStreamReady }: AvatarDisplayProps) {
     return () => {
       disposed = true;
       onStreamReady(null);
+      onHeadReady?.(null);
       if (headRef.current) {
         headRef.current.stop();
         headRef.current = null;
       }
     };
-  }, [onStreamReady, createStreamHandler]);
+  }, [onStreamReady, onHeadReady, createStreamHandler]);
 
   // Update mood when personality traits change
   useEffect(() => {
