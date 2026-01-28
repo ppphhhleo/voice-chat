@@ -65,23 +65,25 @@ export default function Home() {
   });
 
   const handleStreamReady = useCallback((handler: AudioStreamHandler | null) => {
-    setAudioHandler(handler);
-    if (handler) {
-      // Wrap the original handlers to also notify gesture controller
-      const wrappedHandler: AudioStreamHandler = {
-        onStart: () => {
-          handler.onStart();
-          onSpeechStart();
-        },
-        onAudio: handler.onAudio,
-        onEnd: () => {
-          handler.onEnd();
-          onSpeechEnd();
-          resetGestures();
-        },
-      };
-      setAudioHandler(wrappedHandler);
+    if (!handler) {
+      setAudioHandler(null);
+      return;
     }
+    // Wrap the original handlers to also notify gesture controller
+    const wrappedHandler: AudioStreamHandler = {
+      onStart: () => {
+        handler.onStart();
+        onSpeechStart();
+      },
+      onAudio: handler.onAudio,
+      onEnd: () => {
+        handler.onEnd();
+        onSpeechEnd();
+        resetGestures();
+      },
+      onTranscript: handler.onTranscript, // Pass through for lipsync
+    };
+    setAudioHandler(wrappedHandler);
   }, [onSpeechStart, onSpeechEnd, resetGestures]);
 
   const handleHeadReady = useCallback((head: TalkingHead | null) => {

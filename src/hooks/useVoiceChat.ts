@@ -10,6 +10,7 @@ export interface AudioStreamHandler {
   onStart: () => void;
   onAudio: (pcm16: Int16Array) => void;
   onEnd: () => void;
+  onTranscript?: (text: string) => void; // New transcript text for lipsync
 }
 
 interface UseVoiceChatOptions {
@@ -125,6 +126,9 @@ export function useVoiceChat({ voice, systemPrompt, audioStreamHandler, onTransc
           // Update accumulated transcript and notify
           currentTranscriptRef.current += textDelta;
           onTranscriptRef.current?.(currentTranscriptRef.current);
+
+          // Send new text to audio handler for lipsync
+          audioStreamHandlerRef.current?.onTranscript?.(textDelta);
 
           setMessages((prev) => {
             const last = prev[prev.length - 1];

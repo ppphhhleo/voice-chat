@@ -43,26 +43,82 @@ export function AvatarDisplay({ traits, onStreamReady, onHeadReady }: AvatarDisp
 
   const mood = useMemo(() => traitsToMood(traits), [traits]);
 
+  // Track audio timing for word-based lipsync
+  const audioTimeRef = useRef(0);
+  const wordQueueRef = useRef<string[]>([]);
+  const wordBudgetRef = useRef(0); // Accumulated word budget based on audio duration
+
   // Create the audio stream handler for TalkingHead
   const createStreamHandler = useCallback((): AudioStreamHandler => {
     return {
       onStart: () => {
         const head = headRef.current;
         if (head) {
-          head.streamStart({ sampleRate: SAMPLE_RATE, lipsyncLang: "en" });
+          audioTimeRef.current = 0;
+          wordQueueRef.current = [];
+          wordBudgetRef.current = 0;
+          head.streamStart({
+            sampleRate: SAMPLE_RATE,
+            lipsyncLang: "en",
+            lipsyncType: "words",
+          });
         }
       },
       onAudio: (pcm16: Int16Array) => {
         const head = headRef.current;
-        if (head) {
+        if (!head) return;
+
+        // Calculate audio chunk duration in ms
+        const chunkDurationMs = (pcm16.length / SAMPLE_RATE) * 1000;
+
+        // Accumulate word budget based on typical speech rate (~2.5 words/sec)
+        const wordsPerSecond = 2.5;
+        wordBudgetRef.current += (chunkDurationMs / 1000) * wordsPerSecond;
+
+        // Only take whole words when we have budget for at least 1
+        const wordsToTake = Math.min(
+          Math.floor(wordBudgetRef.current),
+          wordQueueRef.current.length
+        );
+
+        if (wordsToTake > 0) {
+          const wordsToUse = wordQueueRef.current.splice(0, wordsToTake);
+          wordBudgetRef.current -= wordsToTake;
+
+          // Calculate timing for words within this chunk
+          const wordDuration = chunkDurationMs / wordsToUse.length;
+          const wtimes: number[] = [];
+          const wdurations: number[] = [];
+
+          for (let i = 0; i < wordsToUse.length; i++) {
+            wtimes.push(audioTimeRef.current + i * wordDuration);
+            wdurations.push(wordDuration * 0.85);
+          }
+
+          head.streamAudio({
+            audio: pcm16,
+            words: wordsToUse,
+            wtimes: wtimes,
+            wdurations: wdurations,
+          });
+        } else {
           head.streamAudio({ audio: pcm16 });
         }
+
+        audioTimeRef.current += chunkDurationMs;
       },
       onEnd: () => {
         const head = headRef.current;
         if (head) {
           head.streamNotifyEnd();
         }
+        audioTimeRef.current = 0;
+        wordQueueRef.current = [];
+        wordBudgetRef.current = 0;
+      },
+      onTranscript: (text: string) => {
+        const words = text.split(/\s+/).filter((w) => w.length > 0);
+        wordQueueRef.current.push(...words);
       },
     };
   }, []);

@@ -31,7 +31,9 @@ declare module "@met4citizen/talkinghead" {
       audio?: Int16Array | Float32Array | ArrayBuffer | Uint8Array;
       visemes?: unknown;
       anims?: unknown;
-      words?: unknown;
+      words?: string[];
+      wtimes?: number[];
+      wdurations?: number[];
     }): void;
     streamNotifyEnd(): void;
     streamInterrupt(): void;
