@@ -13,8 +13,8 @@ interface AvatarGallery3DProps {
 }
 
 /**
- * Renders one TalkingHead per avatar, but only the selected one is visible/resumed.
- * Others stay "closed": their canvas is hidden and render loop paused to save GPU.
+ * Shows all five avatars at once (row/grid). Only the selected avatar is live
+ * for audio/lipsync; others are paused but remain visible.
  */
 export function AvatarGallery3D({
   onCharacterChange,
@@ -22,20 +22,16 @@ export function AvatarGallery3D({
   onHeadReady,
   initialCharacterId = "alex",
 }: AvatarGallery3DProps) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const headMapRef = useRef<Map<string, TalkingHead>>(new Map());
-  const containerMapRef = useRef<Map<string, HTMLDivElement>>(new Map());
-  const [selectedId, setSelectedId] = useState(initialCharacterId);
+  const characters = useMemo(() => getAllCharacters(), []);
+  const initialId = characters.find((c) => c.id === initialCharacterId)?.id ?? characters[0].id;
+
+  const [selectedId, setSelectedId] = useState(initialId);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [isSwitching, setIsSwitching] = useState(false);
+  const [mountedCount, setMountedCount] = useState(0);
 
-  const characters = useMemo(() => getAllCharacters(), []);
-  const selectedCharacter =
-    characters.find((c) => c.id === selectedId) ?? characters[0];
-  const initialCharacterRef = useRef<Character | null>(
-    characters.find((c) => c.id === initialCharacterId) ?? characters[0]
-  );
+  const containerMapRef = useRef<Map<string, HTMLDivElement>>(new Map());
+  const headMapRef = useRef<Map<string, TalkingHead>>(new Map());
 
   const buildStreamHandler = useCallback(
     (head: TalkingHead | null): AudioStreamHandler | null => {
@@ -48,14 +44,10 @@ export function AvatarGallery3D({
             lipsyncType: "words",
           });
         },
-        onAudio: (pcm16: Int16Array) => {
-          head.streamAudio({ audio: pcm16 });
-        },
-        onEnd: () => {
-          head.streamNotifyEnd();
-        },
+        onAudio: (pcm16: Int16Array) => head.streamAudio({ audio: pcm16 }),
+        onEnd: () => head.streamNotifyEnd(),
         onTranscript: (text: string) => {
-          const words = text.split(/\s+/).filter((w) => w.length > 0);
+          const words = text.split(/\s+/).filter(Boolean);
           head.streamAudio({
             audio: new Int16Array(0),
             words,
@@ -68,55 +60,55 @@ export function AvatarGallery3D({
     []
   );
 
+  // Apply selection: pause others, resume selected, wire callbacks
   const applySelection = useCallback(
-    (characterId: string) => {
-      const character = characters.find((c) => c.id === characterId);
-      if (!character) return;
+    (id: string) => {
+      const character = characters.find((c) => c.id === id);
+      const selectedHead = headMapRef.current.get(id) || null;
+      if (!character || !selectedHead) return;
 
-      const selectedHead = headMapRef.current.get(characterId) || null;
-      const selectedContainer = containerMapRef.current.get(characterId) || null;
-
-      // Hide + pause all
-      headMapRef.current.forEach((head, id) => {
-        head.pause?.();
-        const cont = containerMapRef.current.get(id);
-        if (cont) cont.style.display = "none";
+      headMapRef.current.forEach((head, hid) => {
+        if (hid === id) {
+          head.resume?.();
+        } else {
+          head.pause?.();
+        }
       });
 
-      // Show + resume selected
-      if (selectedHead && selectedContainer) {
-        selectedContainer.style.display = "block";
-        selectedHead.resume?.();
-        setSelectedId(characterId);
-        onCharacterChange(character);
-        onHeadReady?.(selectedHead);
-        onStreamReady(buildStreamHandler(selectedHead));
-      }
+      setSelectedId(id);
+      onCharacterChange(character);
+      onHeadReady?.(selectedHead);
+      onStreamReady(buildStreamHandler(selectedHead));
     },
     [buildStreamHandler, characters, onCharacterChange, onHeadReady, onStreamReady]
   );
 
-  // Initialize TalkingHead once
+  // Instantiate a TalkingHead per container once all mounts exist
   useEffect(() => {
     let disposed = false;
 
     async function init() {
-      if (!containerRef.current) return;
+      if (mountedCount < characters.length) return; // wait until all refs set
       try {
         const { TalkingHead: TH } = await import("@met4citizen/talkinghead");
-        if (disposed || !containerRef.current) return;
 
-        // Build a canvas for each character (stacked)
+        let LipsyncEn: any = null;
+        try {
+          // @ts-expect-error runtime browser import from public URL
+          const lipsyncModule = await import(/* webpackIgnore: true */ "/modules/lipsync-en.mjs");
+          LipsyncEn = lipsyncModule.LipsyncEn;
+        } catch (e) {
+          console.warn("Failed to load lipsync module:", e);
+        }
+
         for (const character of characters) {
-          const avatarContainer = document.createElement("div");
-          avatarContainer.style.position = "absolute";
-          avatarContainer.style.inset = "0";
-          avatarContainer.style.display = "none";
-          avatarContainer.style.pointerEvents = "auto"; // allow mouse/touch interaction when visible
-          containerRef.current.appendChild(avatarContainer);
-          containerMapRef.current.set(character.id, avatarContainer);
+          if (disposed) return;
+          if (headMapRef.current.has(character.id)) continue;
 
-          const head = new TH(avatarContainer, {
+          const mount = containerMapRef.current.get(character.id);
+          if (!mount) continue;
+
+          const head = new TH(mount, {
             ttsEndpoint: null,
             lipsyncModules: [],
             cameraView: "full",
@@ -125,21 +117,14 @@ export function AvatarGallery3D({
             cameraY: 0.4,
             cameraRotateEnable: true,
             cameraPanEnable: true,
+            cameraZoomEnable: true,
             avatarMood: character.mood,
-            modelFPS: character.id === initialCharacterRef.current?.id ? 30 : 24,
-            modelPixelRatio:
-              character.id === initialCharacterRef.current?.id ? Math.min(window.devicePixelRatio, 2) : 1,
+            modelFPS: character.id === initialId ? 30 : 22,
+            modelPixelRatio: character.id === initialId ? Math.min(window.devicePixelRatio, 2) : 1,
           });
 
-          // Load lipsync module
-          try {
-            // @ts-expect-error runtime browser import from public URL
-            const lipsyncModule = await import(
-              /* webpackIgnore: true */ "/modules/lipsync-en.mjs"
-            );
-            (head as any).lipsync["en"] = new lipsyncModule.LipsyncEn();
-          } catch (e) {
-            console.warn("Failed to load lipsync module:", e);
+          if (LipsyncEn) {
+            (head as any).lipsync["en"] = new LipsyncEn();
           }
 
           await head.showAvatar({
@@ -149,22 +134,19 @@ export function AvatarGallery3D({
             lipsyncLang: "en",
           });
 
-          head.pause?.(); // keep closed by default
+          // Keep non-selected paused to save GPU; selected will be resumed below
+          head.pause?.();
           headMapRef.current.set(character.id, head);
         }
 
-        if (disposed) return;
-
-        // Open initial character
-        const initialId = initialCharacterRef.current?.id ?? characters[0].id;
-        applySelection(initialId);
-        setIsLoading(false);
+        if (!disposed) {
+          applySelection(initialId);
+          setIsLoading(false);
+        }
       } catch (err) {
         if (!disposed) {
           console.error("Failed to initialize avatars:", err);
-          setLoadError(
-            err instanceof Error ? err.message : "Failed to initialize avatars"
-          );
+          setLoadError(err instanceof Error ? err.message : "Failed to initialize avatars");
           setIsLoading(false);
         }
       }
@@ -178,84 +160,72 @@ export function AvatarGallery3D({
       onHeadReady?.(null);
       headMapRef.current.forEach((head) => head.stop?.());
       headMapRef.current.clear();
-      containerMapRef.current.forEach((node) => {
-        if (node.parentNode) node.parentNode.removeChild(node);
-      });
-      containerMapRef.current.clear();
     };
-  }, [applySelection, characters, onCharacterChange, onHeadReady, onStreamReady]);
+  }, [applySelection, characters, initialId, mountedCount, onHeadReady, onStreamReady]);
 
-  // Expose handler when the user changes characters via dots
-  const handleDotClick = useCallback(
-    (id: string) => {
-      if (id === selectedId || isSwitching || isLoading) return;
-      setIsSwitching(true);
-      applySelection(id);
-      setIsSwitching(false);
-    },
-    [applySelection, isLoading, isSwitching, selectedId]
-  );
+  // Ref setter for each card
+  const setContainer = useCallback((id: string, node: HTMLDivElement | null) => {
+    if (node) {
+      containerMapRef.current.set(id, node);
+    } else {
+      containerMapRef.current.delete(id);
+    }
+    setMountedCount(containerMapRef.current.size);
+  }, []);
 
   return (
-    <div className="card overflow-hidden relative flex flex-col">
-      {/* 3D Avatar */}
-      <div
-        ref={containerRef}
-        className="w-full flex-1 min-h-[520px] bg-gray-900 relative"
-        style={{ cursor: "grab" }}
-      />
+    <div className="card relative p-4 space-y-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3">
+        {characters.map((character) => (
+          <div
+            key={character.id}
+            className={`relative overflow-hidden rounded-xl border transition-all ${
+              character.id === selectedId
+                ? "border-[var(--accent)] shadow-lg shadow-[rgba(138,180,248,0.25)] scale-[1.01]"
+                : "border-[var(--outline)]"
+            }`}
+            style={{ backgroundColor: "#0f172a" }}
+            onClick={() => applySelection(character.id)}
+            role="button"
+            tabIndex={0}
+          >
+            <div
+              ref={(node) => setContainer(character.id, node)}
+              className="w-full aspect-[4/5] bg-black/70"
+              style={{
+                opacity: character.id === selectedId ? 1 : 0.65,
+                cursor: "grab",
+              }}
+            />
 
-      {(isLoading || isSwitching) && (
-        <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-          <div className="text-white text-lg">
-            {isSwitching ? "Switching avatar..." : "Loading avatars..."}
+            <div
+              className="absolute inset-x-2 bottom-2 flex items-center justify-between rounded-lg bg-black/70 px-3 py-2 text-sm text-white"
+              style={{ pointerEvents: "none" }}
+            >
+              <div className="flex items-center gap-2">
+                <span
+                  className="inline-block w-3 h-3 rounded-full"
+                  style={{ backgroundColor: character.primaryColor }}
+                />
+                <span className="font-semibold">{character.name}</span>
+              </div>
+              <span className="text-[11px] text-gray-300">{character.voice}</span>
+            </div>
           </div>
+        ))}
+      </div>
+
+      {isLoading && (
+        <div className="absolute inset-0 bg-black/60 flex items-center justify-center rounded-xl">
+          <div className="text-white text-lg">Loading avatars...</div>
         </div>
       )}
 
       {loadError && (
-        <div className="absolute inset-x-4 bottom-24 bg-red-900/70 border border-red-500 text-red-50 text-sm px-4 py-3 rounded">
+        <div className="absolute inset-x-4 bottom-4 bg-red-900/70 border border-red-500 text-red-50 text-sm px-4 py-3 rounded">
           {loadError}
         </div>
       )}
-
-      {/* Selected character info overlay */}
-      <div className="absolute bottom-4 left-4 right-4 bg-black/70 p-4 rounded-lg backdrop-blur-sm">
-        <div className="flex items-center gap-4">
-          <div
-            className="w-12 h-12 rounded-full flex items-center justify-center text-2xl font-bold text-white"
-            style={{ backgroundColor: selectedCharacter.primaryColor }}
-          >
-            {selectedCharacter.name[0]}
-          </div>
-          <div className="flex-1">
-            <h3 className="text-lg font-semibold text-white">
-              {selectedCharacter.name}
-            </h3>
-            <p className="text-sm text-gray-300">{selectedCharacter.description}</p>
-          </div>
-          <div className="text-sm text-gray-400 text-right">
-            <div>Voice: {selectedCharacter.voice}</div>
-            <div className="text-xs mt-1">Click colored dots to switch</div>
-          </div>
-        </div>
-      </div>
-
-      {/* Character indicators */}
-      <div className="absolute top-4 left-4 right-4 flex justify-center gap-2">
-        {characters.map((character) => (
-          <button
-            key={character.id}
-            className={`w-3 h-3 rounded-full transition-all ${
-              character.id === selectedId ? "scale-150" : "opacity-40"
-            }`}
-            style={{ backgroundColor: character.primaryColor }}
-            onClick={() => handleDotClick(character.id)}
-            title={character.name}
-            aria-label={`Select ${character.name}`}
-          />
-        ))}
-      </div>
     </div>
   );
 }
