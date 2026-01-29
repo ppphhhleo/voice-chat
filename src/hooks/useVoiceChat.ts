@@ -85,6 +85,15 @@ export function useVoiceChat({ voice, systemPrompt, audioStreamHandler, onTransc
     );
   }, [voice, systemPrompt]);
 
+  // If voice or prompt changes while connected, push an update so the
+  // server switches voices without requiring a reconnect.
+  useEffect(() => {
+    const ws = wsRef.current;
+    if (ws?.readyState === WebSocket.OPEN) {
+      sendSessionUpdate(ws);
+    }
+  }, [sendSessionUpdate, voice, systemPrompt]);
+
   const handleMessage = useCallback((event: MessageEvent) => {
     const data = JSON.parse(event.data);
 

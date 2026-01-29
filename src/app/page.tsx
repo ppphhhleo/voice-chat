@@ -7,7 +7,8 @@ import { generateSystemPrompt } from "@/utils/personality";
 import { ConnectionControls } from "@/components/ConnectionControls";
 import { ChatMessages } from "@/components/ChatMessages";
 import { TextInput } from "@/components/TextInput";
-import { CharacterGallery } from "@/components/CharacterGallery";
+import { AvatarGallery3D } from "@/components/AvatarGallery3D";
+import { BVHAnimationPlayer } from "@/components/BVHAnimationPlayer";
 import { Character, CHARACTERS } from "@/characters";
 import {
   useGestureController,
@@ -126,13 +127,18 @@ export default function Home() {
         </div>
       </header>
 
-      {/* Character Gallery */}
-      <CharacterGallery
+      {/* 3D Avatar Gallery */}
+      <AvatarGallery3D
         onCharacterChange={handleCharacterChange}
         onStreamReady={handleStreamReady}
         onHeadReady={handleHeadReady}
         initialCharacterId="alex"
       />
+
+      {/* BVH Animation Player */}
+      {headRef.current && (
+        <BVHAnimationPlayer head={headRef.current} />
+      )}
 
       {/* Connection Controls */}
       <ConnectionControls

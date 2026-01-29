@@ -11,7 +11,7 @@ export const CHARACTERS: Record<string, Character> = {
     id: 'alex',
     name: 'Alex',
     description: 'Professional and organized',
-    avatar: '/avatars/brunette.glb',
+    avatar: '/avatars/Rex.glb',
     voice: 'Rex', // Confident, clear
     personality: {
       openness: 45,          // Practical
@@ -35,7 +35,7 @@ export const CHARACTERS: Record<string, Character> = {
     id: 'maya',
     name: 'Maya',
     description: 'Warm and approachable',
-    avatar: '/avatars/brunette.glb',
+    avatar: '/avatars/Ara.glb',
     voice: 'Ara', // Warm, friendly
     personality: {
       openness: 70,          // Creative
@@ -59,7 +59,7 @@ export const CHARACTERS: Record<string, Character> = {
     id: 'jordan',
     name: 'Jordan',
     description: 'Imaginative and energetic',
-    avatar: '/avatars/girl.glb',
+    avatar: '/avatars/Eve.glb',
     voice: 'Eve', // Energetic, upbeat
     personality: {
       openness: 95,          // Highly creative
@@ -83,7 +83,7 @@ export const CHARACTERS: Record<string, Character> = {
     id: 'sam',
     name: 'Sam',
     description: 'Logical and precise',
-    avatar: '/avatars/brunette.glb',
+    avatar: '/avatars/Sal.glb',
     voice: 'Sal', // Smooth, balanced
     personality: {
       openness: 55,          // Balanced
@@ -107,7 +107,7 @@ export const CHARACTERS: Record<string, Character> = {
     id: 'riley',
     name: 'Riley',
     description: 'Sensitive and thoughtful',
-    avatar: '/avatars/girl.glb',
+    avatar: '/avatars/Leo.glb',
     voice: 'Leo', // Authoritative but caring
     personality: {
       openness: 65,          // Creative
@@ -120,7 +120,7 @@ export const CHARACTERS: Record<string, Character> = {
     primaryColor: '#9B59B6', // Empathetic purple
     gestureBehavior: {
       frequency: 'moderate',
-      style: 'gentle',
+      style: 'balanced',
       favoriteGestures: ['namaste', 'ok', 'thumbup'],
       confidenceMultiplier: 0.9,
       intervalWords: 45
