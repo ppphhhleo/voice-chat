@@ -13,9 +13,8 @@ interface AvatarGallery3DProps {
 }
 
 /**
- * Renders a single TalkingHead canvas and swaps avatars as the user selects characters.
- * This avoids creating multiple WebGL contexts (which can prevent rendering entirely on some machines)
- * and gives us a single place to attach stream handlers / gestures.
+ * Renders one TalkingHead per avatar, but only the selected one is visible/resumed.
+ * Others stay "closed": their canvas is hidden and render loop paused to save GPU.
  */
 export function AvatarGallery3D({
   onCharacterChange,
@@ -24,7 +23,8 @@ export function AvatarGallery3D({
   initialCharacterId = "alex",
 }: AvatarGallery3DProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const headRef = useRef<TalkingHead | null>(null);
+  const headMapRef = useRef<Map<string, TalkingHead>>(new Map());
+  const containerMapRef = useRef<Map<string, HTMLDivElement>>(new Map());
   const [selectedId, setSelectedId] = useState(initialCharacterId);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -68,31 +68,29 @@ export function AvatarGallery3D({
     []
   );
 
-  const selectCharacter = useCallback(
-    async (characterId: string) => {
+  const applySelection = useCallback(
+    (characterId: string) => {
       const character = characters.find((c) => c.id === characterId);
-      if (!character || !headRef.current) return;
+      if (!character) return;
 
-      setSelectedId(characterId);
-      setIsSwitching(true);
-      setLoadError(null);
+      const selectedHead = headMapRef.current.get(characterId) || null;
+      const selectedContainer = containerMapRef.current.get(characterId) || null;
 
-      try {
-        await headRef.current.showAvatar({
-          url: character.avatar,
-          body: "F",
-          avatarMood: character.mood,
-          lipsyncLang: "en",
-        });
+      // Hide + pause all
+      headMapRef.current.forEach((head, id) => {
+        head.pause?.();
+        const cont = containerMapRef.current.get(id);
+        if (cont) cont.style.display = "none";
+      });
 
+      // Show + resume selected
+      if (selectedHead && selectedContainer) {
+        selectedContainer.style.display = "block";
+        selectedHead.resume?.();
+        setSelectedId(characterId);
         onCharacterChange(character);
-        onHeadReady?.(headRef.current);
-        onStreamReady(buildStreamHandler(headRef.current));
-      } catch (err) {
-        console.error("Failed to swap avatar:", err);
-        setLoadError("Failed to load avatar. Please try another character.");
-      } finally {
-        setIsSwitching(false);
+        onHeadReady?.(selectedHead);
+        onStreamReady(buildStreamHandler(selectedHead));
       }
     },
     [buildStreamHandler, characters, onCharacterChange, onHeadReady, onStreamReady]
@@ -106,51 +104,60 @@ export function AvatarGallery3D({
       if (!containerRef.current) return;
       try {
         const { TalkingHead: TH } = await import("@met4citizen/talkinghead");
-
         if (disposed || !containerRef.current) return;
 
-        const head = new TH(containerRef.current, {
-          ttsEndpoint: null,
-          lipsyncModules: [],
-          cameraView: "full",
-          cameraDistance: 1.5,
-          cameraX: 0,
-          cameraY: 0.4,
-          cameraRotateEnable: true,
-          cameraPanEnable: true,
-          avatarMood: initialCharacterRef.current?.mood,
-          modelFPS: 30,
-          modelPixelRatio: Math.min(window.devicePixelRatio, 2),
-        });
+        // Build a canvas for each character (stacked)
+        for (const character of characters) {
+          const avatarContainer = document.createElement("div");
+          avatarContainer.style.position = "absolute";
+          avatarContainer.style.inset = "0";
+          avatarContainer.style.display = "none";
+          avatarContainer.style.pointerEvents = "none";
+          containerRef.current.appendChild(avatarContainer);
+          containerMapRef.current.set(character.id, avatarContainer);
 
-        // Load lipsync module
-        try {
-          // @ts-expect-error runtime browser import from public URL
-          const lipsyncModule = await import(
-            /* webpackIgnore: true */ "/modules/lipsync-en.mjs"
-          );
-          (head as any).lipsync["en"] = new lipsyncModule.LipsyncEn();
-        } catch (e) {
-          console.warn("Failed to load lipsync module:", e);
+          const head = new TH(avatarContainer, {
+            ttsEndpoint: null,
+            lipsyncModules: [],
+            cameraView: "full",
+            cameraDistance: 1.5,
+            cameraX: 0,
+            cameraY: 0.4,
+            cameraRotateEnable: true,
+            cameraPanEnable: true,
+            avatarMood: character.mood,
+            modelFPS: character.id === initialCharacterRef.current?.id ? 30 : 24,
+            modelPixelRatio:
+              character.id === initialCharacterRef.current?.id ? Math.min(window.devicePixelRatio, 2) : 1,
+          });
+
+          // Load lipsync module
+          try {
+            // @ts-expect-error runtime browser import from public URL
+            const lipsyncModule = await import(
+              /* webpackIgnore: true */ "/modules/lipsync-en.mjs"
+            );
+            (head as any).lipsync["en"] = new lipsyncModule.LipsyncEn();
+          } catch (e) {
+            console.warn("Failed to load lipsync module:", e);
+          }
+
+          await head.showAvatar({
+            url: character.avatar,
+            body: "F",
+            avatarMood: character.mood,
+            lipsyncLang: "en",
+          });
+
+          head.pause?.(); // keep closed by default
+          headMapRef.current.set(character.id, head);
         }
-
-        headRef.current = head;
-
-        // Show initial avatar
-        await head.showAvatar({
-          url: initialCharacterRef.current?.avatar,
-          body: "F",
-          avatarMood: initialCharacterRef.current?.mood,
-          lipsyncLang: "en",
-        });
 
         if (disposed) return;
 
-        if (initialCharacterRef.current) {
-          onCharacterChange(initialCharacterRef.current);
-        }
-        onHeadReady?.(head);
-        onStreamReady(buildStreamHandler(head));
+        // Open initial character
+        const initialId = initialCharacterRef.current?.id ?? characters[0].id;
+        applySelection(initialId);
         setIsLoading(false);
       } catch (err) {
         if (!disposed) {
@@ -167,20 +174,26 @@ export function AvatarGallery3D({
 
     return () => {
       disposed = true;
-      headRef.current?.stop?.();
-      headRef.current = null;
       onStreamReady(null);
       onHeadReady?.(null);
+      headMapRef.current.forEach((head) => head.stop?.());
+      headMapRef.current.clear();
+      containerMapRef.current.forEach((node) => {
+        if (node.parentNode) node.parentNode.removeChild(node);
+      });
+      containerMapRef.current.clear();
     };
-  }, [buildStreamHandler, onCharacterChange, onHeadReady, onStreamReady]);
+  }, [applySelection, characters, onCharacterChange, onHeadReady, onStreamReady]);
 
   // Expose handler when the user changes characters via dots
   const handleDotClick = useCallback(
     (id: string) => {
       if (id === selectedId || isSwitching || isLoading) return;
-      selectCharacter(id);
+      setIsSwitching(true);
+      applySelection(id);
+      setIsSwitching(false);
     },
-    [isLoading, isSwitching, selectCharacter, selectedId]
+    [applySelection, isLoading, isSwitching, selectedId]
   );
 
   return (
