@@ -112,7 +112,7 @@ export function AvatarGallery3D({
           avatarContainer.style.position = "absolute";
           avatarContainer.style.inset = "0";
           avatarContainer.style.display = "none";
-          avatarContainer.style.pointerEvents = "none";
+          avatarContainer.style.pointerEvents = "auto"; // allow mouse/touch interaction when visible
           containerRef.current.appendChild(avatarContainer);
           containerMapRef.current.set(character.id, avatarContainer);
 
