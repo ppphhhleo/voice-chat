@@ -64,14 +64,14 @@ export function BVHAnimationPlayer({ head, onError }: BVHAnimationPlayerProps) {
         {/* Load test motion */}
         <div className="flex gap-2">
           <button
-            onClick={() => loadAndPlayBVH('/test-motion.bvh', 10)}
+            onClick={() => loadAndPlayBVH('/motions/test.bvh', 10)}
             disabled={isLoading || !head}
             className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 text-white px-4 py-2 rounded transition-colors"
           >
             {isLoading ? 'Loading...' : 'Load BVH (10s)'}
           </button>
           <button
-            onClick={() => loadAndPlayBVH('/test-motion.bvh', 30)}
+            onClick={() => loadAndPlayBVH('/motions/test.bvh', 30)}
             disabled={isLoading || !head}
             className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 text-white px-4 py-2 rounded transition-colors"
           >

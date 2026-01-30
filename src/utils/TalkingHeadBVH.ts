@@ -7,7 +7,57 @@ import * as THREE from 'three';
 import { BVHLoader } from './BVHLoader';
 import type { TalkingHead } from '@met4citizen/talkinghead';
 
+/**
+ * Per-bone bind-pose data needed for basis conversion
+ */
+interface BoneBindInfo {
+  /** Bone's world-space bind rotation */
+  avatarWorld: THREE.Quaternion;
+  /** Parent's world-space bind rotation (identity for root) */
+  parentWorld: THREE.Quaternion;
+}
+
 export class TalkingHeadBVH {
+  /** Cache bind-pose data per armature so we don't recompute for every BVH */
+  private static bindCache = new WeakMap<any, Map<string, BoneBindInfo>>();
+
+  /**
+   * Compute per-bone bind-pose world rotations to align BVH world-aligned basis
+   * to the avatar's actual joint spaces. Cached per armature instance.
+   */
+  private static buildBindAlignment(armature: any, bvhRoot: any): Map<string, BoneBindInfo> {
+    let cached = this.bindCache.get(armature);
+    if (cached) return cached;
+
+    // Ensure matrices are up to date for accurate world quaternions
+    if (armature.updateMatrixWorld) {
+      armature.updateMatrixWorld(true);
+    }
+
+    const map = new Map<string, BoneBindInfo>();
+
+    const allBVHJoints = BVHLoader.getAllJoints(bvhRoot);
+    for (const joint of allBVHJoints) {
+      const bone = armature.getObjectByName?.(joint.name);
+      if (!bone) continue;
+
+      const avatarWorld = new THREE.Quaternion();
+      bone.getWorldQuaternion(avatarWorld);
+
+      const parentWorld = new THREE.Quaternion();
+      if (bone.parent && bone.parent.getWorldQuaternion) {
+        bone.parent.getWorldQuaternion(parentWorld);
+      } else {
+        parentWorld.identity();
+      }
+
+      map.set(joint.name, { avatarWorld, parentWorld });
+    }
+
+    this.bindCache.set(armature, map);
+    return map;
+  }
+
   /**
    * Load a BVH file and add it to TalkingHead's animation system
    */
@@ -32,6 +82,9 @@ export class TalkingHeadBVH {
 
     console.log(`BVH loaded: ${bvhData.frames.length} frames, ${bvhData.frameTime}s per frame`);
 
+    // Build bind-pose alignment maps between BVH skeleton and avatar armature
+    const bindInfo = this.buildBindAlignment(head.armature, bvhData.skeleton);
+
     // Create Three.js AnimationClip from BVH data
     const tracks: THREE.KeyframeTrack[] = [];
     const allJoints = BVHLoader.getAllJoints(bvhData.skeleton);
@@ -41,12 +94,12 @@ export class TalkingHeadBVH {
     for (const joint of allJoints) {
       // Check if bone exists in armature
       const bone = head.armature.getObjectByName(joint.name);
-      if (!bone) {
+      if (!bone || !bindInfo.has(joint.name)) {
         missingBones.push(joint.name);
         continue;
       }
 
-      const boneTracks = this.createBoneTracks(joint, bvhData);
+      const boneTracks = this.createBoneTracks(joint, bvhData, bindInfo.get(joint.name)!);
       tracks.push(...boneTracks);
     }
 
@@ -65,7 +118,7 @@ export class TalkingHeadBVH {
     const clip = new THREE.AnimationClip('BVHAnimation', clipDuration, tracks);
 
     // Extract pose from first frame
-    const pose = this.extractPose(bvhData, allJoints);
+    const pose = this.extractPose(bvhData, allJoints, bindInfo);
 
     // Add to TalkingHead's animClips
     const animItem = {
@@ -152,7 +205,7 @@ export class TalkingHeadBVH {
   /**
    * Create animation tracks for a bone
    */
-  private static createBoneTracks(joint: any, bvhData: any): THREE.KeyframeTrack[] {
+  private static createBoneTracks(joint: any, bvhData: any, bind: BoneBindInfo): THREE.KeyframeTrack[] {
     const tracks: THREE.KeyframeTrack[] = [];
     const frameCount = bvhData.frames.length;
 
@@ -202,6 +255,9 @@ export class TalkingHeadBVH {
 
       const euler = new THREE.Euler();
       const quaternion = new THREE.Quaternion();
+      const worldTarget = new THREE.Quaternion();
+      const localAvatar = new THREE.Quaternion();
+      const invParent = bind.parentWorld.clone().invert();
 
       for (let i = 0; i < frameCount; i++) {
         const frame = bvhData.frames[i];
@@ -216,10 +272,17 @@ export class TalkingHeadBVH {
         euler.set(xRot, yRot, zRot, 'ZXY');
         quaternion.setFromEuler(euler);
 
-        quaternions[i * 4 + 0] = quaternion.x;
-        quaternions[i * 4 + 1] = quaternion.y;
-        quaternions[i * 4 + 2] = quaternion.z;
-        quaternions[i * 4 + 3] = quaternion.w;
+        // Convert BVH world-aligned rotation into avatar's local joint space
+        // 1) Treat BVH rotation as a world orientation for this joint
+        // 2) Re-express it in the avatar basis using bind-pose world rotation
+        worldTarget.copy(bind.avatarWorld).multiply(quaternion);
+        // 3) Convert to local (relative to parent bind world)
+        localAvatar.copy(invParent).multiply(worldTarget).normalize();
+
+        quaternions[i * 4 + 0] = localAvatar.x;
+        quaternions[i * 4 + 1] = localAvatar.y;
+        quaternions[i * 4 + 2] = localAvatar.z;
+        quaternions[i * 4 + 3] = localAvatar.w;
       }
 
       tracks.push(
@@ -237,7 +300,7 @@ export class TalkingHeadBVH {
   /**
    * Extract pose from first frame of BVH
    */
-  private static extractPose(bvhData: any, allJoints: any[]): any {
+  private static extractPose(bvhData: any, allJoints: any[], bindInfo: Map<string, BoneBindInfo>): any {
     const props: Record<string, any> = {};
 
     if (bvhData.frames.length === 0) return { props };
@@ -261,18 +324,24 @@ export class TalkingHeadBVH {
         props[`${joint.name}.position`] = new THREE.Vector3(x, y, z);
       }
 
-      // Rotation
+      // Rotation (converted to avatar local space using bind alignment)
       const xRotIdx = joint.channels.indexOf('Xrotation');
       const yRotIdx = joint.channels.indexOf('Yrotation');
       const zRotIdx = joint.channels.indexOf('Zrotation');
 
-      if (xRotIdx >= 0 && yRotIdx >= 0 && zRotIdx >= 0) {
+      if (xRotIdx >= 0 && yRotIdx >= 0 && zRotIdx >= 0 && bindInfo.has(joint.name)) {
         const xRot = THREE.MathUtils.degToRad(firstFrame[offset + xRotIdx]);
         const yRot = THREE.MathUtils.degToRad(firstFrame[offset + yRotIdx]);
         const zRot = THREE.MathUtils.degToRad(firstFrame[offset + zRotIdx]);
 
         const euler = new THREE.Euler(xRot, yRot, zRot, 'ZXY');
-        props[`${joint.name}.quaternion`] = new THREE.Quaternion().setFromEuler(euler);
+        const bvhWorld = new THREE.Quaternion().setFromEuler(euler);
+
+        const bind = bindInfo.get(joint.name)!;
+        const worldTarget = bind.avatarWorld.clone().multiply(bvhWorld);
+        const localAvatar = bind.parentWorld.clone().invert().multiply(worldTarget).normalize();
+
+        props[`${joint.name}.quaternion`] = localAvatar;
       }
     }
 
