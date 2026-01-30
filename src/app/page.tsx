@@ -103,27 +103,38 @@ export default function Home() {
           <h1 className="text-3xl font-semibold leading-tight">Grok Voice Chat</h1>
           <p className="text-sm text-[var(--muted)]">Choose a character and start a conversation with unique personalities.</p>
         </div>
-        <div className="flex items-center gap-2">
-          <span
-            className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold ${
-              chat.isConnected
-                ? "bg-[rgba(138,180,248,0.12)] text-[var(--accent)]"
-                : "bg-[rgba(255,255,255,0.08)] text-[var(--muted)]"
-            }`}
-          >
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
             <span
-              className={`w-2.5 h-2.5 rounded-full ${
-                chat.isConnected ? "bg-[var(--accent)]" : "bg-[var(--muted)]"
+              className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold ${
+                chat.isConnected
+                  ? "bg-[rgba(138,180,248,0.12)] text-[var(--accent)]"
+                  : "bg-[rgba(255,255,255,0.08)] text-[var(--muted)]"
               }`}
-            />
-            {chat.isConnected ? "Live" : "Offline"}
-          </span>
-          <span className="text-xs text-[var(--muted)]">
-            {chat.isListening && !chat.userSpeaking && !chat.isSpeaking && "Listening"}
-            {chat.userSpeaking && "You're speaking"}
-            {chat.isSpeaking && "Grok is replying"}
-            {!chat.isConnected && "Awaiting connection"}
-          </span>
+            >
+              <span
+                className={`w-2.5 h-2.5 rounded-full ${
+                  chat.isConnected ? "bg-[var(--accent)]" : "bg-[var(--muted)]"
+                }`}
+              />
+              {chat.isConnected ? "Live" : "Offline"}
+            </span>
+            <span className="text-xs text-[var(--muted)]">
+              {chat.isListening && !chat.userSpeaking && !chat.isSpeaking && "Listening"}
+              {chat.userSpeaking && "You're speaking"}
+              {chat.isSpeaking && "Grok is replying"}
+              {!chat.isConnected && "Awaiting connection"}
+            </span>
+          </div>
+          <ConnectionControls
+            isConnected={chat.isConnected}
+            isListening={chat.isListening}
+            isSpeaking={chat.isSpeaking}
+            userSpeaking={chat.userSpeaking}
+            connectionError={chat.connectionError}
+            onStart={chat.startConversation}
+            onStop={chat.stopConversation}
+          />
         </div>
       </header>
 
@@ -139,17 +150,6 @@ export default function Home() {
       {headRef.current && (
         <BVHAnimationPlayer head={headRef.current} />
       )}
-
-      {/* Connection Controls */}
-      <ConnectionControls
-        isConnected={chat.isConnected}
-        isListening={chat.isListening}
-        isSpeaking={chat.isSpeaking}
-        userSpeaking={chat.userSpeaking}
-        connectionError={chat.connectionError}
-        onStart={chat.startConversation}
-        onStop={chat.stopConversation}
-      />
 
       {/* Chat Interface */}
       <div className="space-y-4">

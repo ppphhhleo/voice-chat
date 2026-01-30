@@ -25,16 +25,18 @@ export function ConnectionControls({
         {!isConnected ? (
           <button
             onClick={onStart}
-            className="inline-flex items-center gap-2 rounded-full bg-[var(--accent)] text-surface px-6 py-3 text-sm font-semibold shadow-[var(--card-shadow)] transition hover:-translate-y-[1px]"
+            className="inline-flex items-center justify-center rounded-full bg-[#22c55e] text-white w-14 h-14 text-lg font-semibold shadow-[var(--card-shadow)] transition hover:brightness-110 active:scale-95"
+            aria-label="Start call"
           >
-            Start Conversation
+            📞
           </button>
         ) : (
           <button
             onClick={onStop}
-            className="inline-flex items-center gap-2 rounded-full bg-[#f87171] text-surface px-6 py-3 text-sm font-semibold shadow-[var(--card-shadow)] transition hover:-translate-y-[1px]"
+            className="inline-flex items-center justify-center rounded-full bg-[#ef4444] text-white w-14 h-14 text-lg font-semibold shadow-[var(--card-shadow)] transition hover:brightness-110 active:scale-95"
+            aria-label="End call"
           >
-            Stop
+            📴
           </button>
         )}
 
