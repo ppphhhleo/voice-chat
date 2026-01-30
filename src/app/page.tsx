@@ -100,12 +100,12 @@ export default function Home() {
       <header className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <p className="text-xs uppercase tracking-[0.3em] text-[var(--muted)]">Realtime Voice</p>
-          <h1 className="text-3xl font-semibold leading-tight">Grok Voice Chat</h1>
+          <h1 className="text-3xl font-semibold leading-tight">Voice Chat</h1>
           <p className="text-sm text-[var(--muted)]">Choose a character and start a conversation with unique personalities.</p>
         </div>
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2">
-            <span
+            {/* <span
               className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold ${
                 chat.isConnected
                   ? "bg-[rgba(138,180,248,0.12)] text-[var(--accent)]"
@@ -118,13 +118,13 @@ export default function Home() {
                 }`}
               />
               {chat.isConnected ? "Live" : "Offline"}
-            </span>
-            <span className="text-xs text-[var(--muted)]">
+            </span> */}
+            {/* <span className="text-xs text-[var(--muted)]">
               {chat.isListening && !chat.userSpeaking && !chat.isSpeaking && "Listening"}
               {chat.userSpeaking && "You're speaking"}
-              {chat.isSpeaking && "Grok is replying"}
+              {chat.isSpeaking && "is replying"}
               {!chat.isConnected && "Awaiting connection"}
-            </span>
+            </span> */}
           </div>
           <ConnectionControls
             isConnected={chat.isConnected}

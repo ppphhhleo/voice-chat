@@ -20,17 +20,17 @@ export function GestureCard({ character }: GestureCardProps) {
             <div className="font-semibold text-white text-sm leading-tight">
               {character.name}
             </div>
-            <div className="text-[var(--muted)] text-[10px] leading-tight">
+            {/* <div className="text-[var(--muted)] text-[10px] leading-tight">
               {behavior.style} · {character.gender}
-            </div>
+            </div> */}
           </div>
         </div>
-        <span
+        {/* <span
           className="px-2 py-0.5 rounded-full font-semibold"
           style={{ backgroundColor: `${character.primaryColor}22`, color: character.primaryColor }}
         >
           {behavior.frequency}
-        </span>
+        </span> */}
       </div>
       <div className="mt-1">
         <span className="text-[var(--muted)]">Favorites: </span>
@@ -47,8 +47,8 @@ export function GestureCard({ character }: GestureCardProps) {
         </span>
       </div>
       <div className="mt-1 flex items-center gap-2">
-        <span>Gap ~{behavior.intervalWords ?? 40} words</span>
-        <span>Conf ×{behavior.confidenceMultiplier ?? 1}</span>
+        {/* <span>Gap ~{behavior.intervalWords ?? 40} words</span> */}
+        {/* <span>Conf ×{behavior.confidenceMultiplier ?? 1}</span> */}
       </div>
     </div>
   );
