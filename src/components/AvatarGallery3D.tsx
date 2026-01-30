@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getAllCharacters, Character } from "@/characters";
 import { AudioStreamHandler } from "@/hooks/useVoiceChat";
+import { GestureCard } from "./GestureCard";
 import type { TalkingHead } from "@met4citizen/talkinghead";
 
 interface AvatarGallery3DProps {
@@ -198,7 +199,7 @@ export function AvatarGallery3D({
               }}
             />
 
-            <div
+            {/* <div
               className="absolute inset-x-2 bottom-2 flex items-center justify-between rounded-lg bg-black/70 px-3 py-2 text-sm text-white"
               style={{ pointerEvents: "none" }}
             >
@@ -210,7 +211,9 @@ export function AvatarGallery3D({
                 <span className="font-semibold">{character.name}</span>
               </div>
               <span className="text-[11px] text-gray-300">{character.voice}</span>
-            </div>
+            </div> */}
+
+            <GestureCard character={character} />
           </div>
         ))}
       </div>

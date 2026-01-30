@@ -9,7 +9,7 @@ import { Character } from './types';
 export const CHARACTERS: Record<string, Character> = {
   alex: {
     id: 'alex',
-    name: 'Alex',
+    name: 'Rex',
     description: 'Professional and organized',
     avatar: '/avatars/Rex.glb',
     voice: 'Rex', // Confident, clear
@@ -33,7 +33,7 @@ export const CHARACTERS: Record<string, Character> = {
 
   maya: {
     id: 'maya',
-    name: 'Maya',
+    name: 'Ara',
     description: 'Warm and approachable',
     avatar: '/avatars/Ara.glb',
     voice: 'Ara', // Warm, friendly
@@ -57,7 +57,7 @@ export const CHARACTERS: Record<string, Character> = {
 
   jordan: {
     id: 'jordan',
-    name: 'Jordan',
+    name: 'Eve',
     description: 'Imaginative and energetic',
     avatar: '/avatars/Eve.glb',
     voice: 'Eve', // Energetic, upbeat
@@ -81,7 +81,7 @@ export const CHARACTERS: Record<string, Character> = {
 
   sam: {
     id: 'sam',
-    name: 'Sam',
+    name: 'Sal',
     description: 'Logical and precise',
     avatar: '/avatars/Sal.glb',
     voice: 'Sal', // Smooth, balanced
@@ -105,7 +105,7 @@ export const CHARACTERS: Record<string, Character> = {
 
   riley: {
     id: 'riley',
-    name: 'Riley',
+    name: 'Leo',
     description: 'Sensitive and thoughtful',
     avatar: '/avatars/Leo.glb',
     voice: 'Leo', // Authoritative but caring
