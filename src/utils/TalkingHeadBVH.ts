@@ -15,6 +15,8 @@ interface BoneBindInfo {
   avatarWorld: THREE.Quaternion;
   /** Parent's world-space bind rotation (identity for root) */
   parentWorld: THREE.Quaternion;
+  /** The avatar bone name actually used (after potential left/right swap) */
+  targetName: string;
 }
 
 export class TalkingHeadBVH {
@@ -36,9 +38,29 @@ export class TalkingHeadBVH {
 
     const map = new Map<string, BoneBindInfo>();
 
+    // Detect if avatar's left/right are flipped relative to BVH data
+    const bvhWorldPos = this.computeBVHWorldPositions(bvhRoot);
+    const bvhL = bvhWorldPos.get('LeftShoulder');
+    const bvhR = bvhWorldPos.get('RightShoulder');
+
+    const avatarL = armature.getObjectByName?.('LeftShoulder');
+    const avatarR = armature.getObjectByName?.('RightShoulder');
+    let swapSides = false;
+    if (bvhL && bvhR && avatarL && avatarR) {
+      const avatarLPos = new THREE.Vector3();
+      const avatarRPos = new THREE.Vector3();
+      avatarL.getWorldPosition(avatarLPos);
+      avatarR.getWorldPosition(avatarRPos);
+
+      const bvhSign = Math.sign(bvhR.x - bvhL.x);
+      const avatarSign = Math.sign(avatarRPos.x - avatarLPos.x);
+      swapSides = bvhSign !== 0 && avatarSign !== 0 && bvhSign !== avatarSign;
+    }
+
     const allBVHJoints = BVHLoader.getAllJoints(bvhRoot);
     for (const joint of allBVHJoints) {
-      const bone = armature.getObjectByName?.(joint.name);
+      const targetName = swapSides ? this.swapLeftRight(joint.name) : joint.name;
+      const bone = armature.getObjectByName?.(targetName);
       if (!bone) continue;
 
       const avatarWorld = new THREE.Quaternion();
@@ -51,11 +73,33 @@ export class TalkingHeadBVH {
         parentWorld.identity();
       }
 
-      map.set(joint.name, { avatarWorld, parentWorld });
+      map.set(joint.name, { avatarWorld, parentWorld, targetName });
     }
 
     this.bindCache.set(armature, map);
     return map;
+  }
+
+  /**
+   * BVH offsets are local; accumulate to get approximate world positions.
+   * This is only for left/right side detection, not for animation playback.
+   */
+  private static computeBVHWorldPositions(root: any): Map<string, THREE.Vector3> {
+    const map = new Map<string, THREE.Vector3>();
+    const walk = (joint: any, parentPos: THREE.Vector3) => {
+      const pos = parentPos.clone().add(new THREE.Vector3().fromArray(joint.offset));
+      map.set(joint.name, pos);
+      for (const child of joint.children || []) walk(child, pos);
+    };
+    walk(root, new THREE.Vector3());
+    return map;
+  }
+
+  /** Swap Left/Right prefixes when needed */
+  private static swapLeftRight(name: string): string {
+    if (name.startsWith('Left')) return name.replace(/^Left/, 'Right');
+    if (name.startsWith('Right')) return name.replace(/^Right/, 'Left');
+    return name;
   }
 
   /**
@@ -237,7 +281,7 @@ export class TalkingHeadBVH {
 
       tracks.push(
         new THREE.VectorKeyframeTrack(
-          `${joint.name}.position`,
+          `${bind.targetName}.position`,
           times,
           positions
         )
@@ -287,7 +331,7 @@ export class TalkingHeadBVH {
 
       tracks.push(
         new THREE.QuaternionKeyframeTrack(
-          `${joint.name}.quaternion`,
+          `${bind.targetName}.quaternion`,
           times,
           quaternions
         )
@@ -341,7 +385,7 @@ export class TalkingHeadBVH {
         const worldTarget = bind.avatarWorld.clone().multiply(bvhWorld);
         const localAvatar = bind.parentWorld.clone().invert().multiply(worldTarget).normalize();
 
-        props[`${joint.name}.quaternion`] = localAvatar;
+        props[`${bind.targetName}.quaternion`] = localAvatar;
       }
     }
 

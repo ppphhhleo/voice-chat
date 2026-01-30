@@ -57,55 +57,39 @@ export function BVHAnimationPlayer({ head, onError }: BVHAnimationPlayerProps) {
   }, [head]);
 
   return (
-    <div className="bg-gray-800 p-4 rounded-lg border border-gray-700">
-      <h3 className="text-lg font-semibold mb-3">BVH Animation Player</h3>
-
-      <div className="space-y-3">
-        {/* Load test motion */}
-        <div className="flex gap-2">
-          <button
-            onClick={() => loadAndPlayBVH('/motions/test.bvh', 10)}
-            disabled={isLoading || !head}
-            className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 text-white px-4 py-2 rounded transition-colors"
-          >
-            {isLoading ? 'Loading...' : 'Load BVH (10s)'}
-          </button>
-          <button
-            onClick={() => loadAndPlayBVH('/motions/test.bvh', 30)}
-            disabled={isLoading || !head}
-            className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 text-white px-4 py-2 rounded transition-colors"
-          >
-            {isLoading ? 'Loading...' : 'Load BVH (30s)'}
-          </button>
-        </div>
-
-        {/* Stop button */}
-        {currentAnimation && (
-          <button
-            onClick={stopAnimation}
-            disabled={!head}
-            className="w-full bg-red-600 hover:bg-red-700 disabled:bg-gray-600 text-white px-4 py-2 rounded transition-colors"
-          >
-            Stop Animation
-          </button>
-        )}
-
-        {/* Status */}
-        <div className="text-xs text-gray-400 bg-gray-900 p-2 rounded font-mono">
-          {currentAnimation ? (
-            <div>
-              <div>Animation: {currentAnimation}</div>
-              <div>Status: {isPlaying ? '▶ Playing' : '⏹ Stopped'}</div>
-              <div className="mt-1 text-yellow-400">{debugInfo}</div>
-            </div>
-          ) : (
-            <div>
-              <div>No animation loaded</div>
-              {debugInfo && <div className="mt-1 text-yellow-400">{debugInfo}</div>}
-            </div>
-          )}
-        </div>
+    <div className="border border-[var(--outline)] rounded-lg p-3 text-sm space-y-2">
+      <div className="flex items-center gap-2">
+        <span className="font-semibold">BVH</span>
+        <span className="text-[var(--muted)] text-xs">
+          {currentAnimation ? (isPlaying ? 'playing' : 'loaded') : 'idle'}
+        </span>
       </div>
+      <div className="flex gap-2">
+        <button
+          onClick={() => loadAndPlayBVH('/motions/test.bvh', 10)}
+          disabled={isLoading || !head}
+          className="flex-1 px-3 py-2 rounded bg-[var(--outline)] text-white hover:bg-white/10 disabled:opacity-60 transition-colors"
+        >
+          {isLoading ? 'Loading…' : 'Load & Play (10s)'}
+        </button>
+        <button
+          onClick={() => loadAndPlayBVH('/motions/test.bvh', 30)}
+          disabled={isLoading || !head}
+          className="flex-1 px-3 py-2 rounded bg-[var(--outline)] text-white hover:bg-white/10 disabled:opacity-60 transition-colors"
+        >
+          {isLoading ? 'Loading…' : 'Load & Play (30s)'}
+        </button>
+        <button
+          onClick={stopAnimation}
+          disabled={!head || !currentAnimation}
+          className="px-3 py-2 rounded bg-red-600 text-white hover:bg-red-700 disabled:opacity-50 transition-colors"
+        >
+          Stop
+        </button>
+      </div>
+      {debugInfo && (
+        <div className="text-xs text-[var(--muted)]">{debugInfo}</div>
+      )}
     </div>
   );
 }
