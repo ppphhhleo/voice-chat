@@ -23,6 +23,12 @@ export class TalkingHeadBVH {
   /** Cache bind-pose data per armature so we don't recompute for every BVH */
   private static bindCache = new WeakMap<any, Map<string, BoneBindInfo>>();
 
+  /** Only swap arm chains (user request) */
+  private static isArmJoint(name: string): boolean {
+    // Cover common arm chain variants (shoulder, upper arm, elbow/forearm, wrist/hand)
+    return /^(Left|Right)(Shoulder|Arm|UpperArm|ForeArm|Elbow|Hand|Wrist)/.test(name);
+  }
+
   /**
    * Compute per-bone bind-pose world rotations to align BVH world-aligned basis
    * to the avatar's actual joint spaces. Cached per armature instance.
@@ -38,28 +44,15 @@ export class TalkingHeadBVH {
 
     const map = new Map<string, BoneBindInfo>();
 
-    // Detect if avatar's left/right are flipped relative to BVH data
-    const bvhWorldPos = this.computeBVHWorldPositions(bvhRoot);
-    const bvhL = bvhWorldPos.get('LeftShoulder');
-    const bvhR = bvhWorldPos.get('RightShoulder');
-
-    const avatarL = armature.getObjectByName?.('LeftShoulder');
-    const avatarR = armature.getObjectByName?.('RightShoulder');
-    let swapSides = false;
-    if (bvhL && bvhR && avatarL && avatarR) {
-      const avatarLPos = new THREE.Vector3();
-      const avatarRPos = new THREE.Vector3();
-      avatarL.getWorldPosition(avatarLPos);
-      avatarR.getWorldPosition(avatarRPos);
-
-      const bvhSign = Math.sign(bvhR.x - bvhL.x);
-      const avatarSign = Math.sign(avatarRPos.x - avatarLPos.x);
-      swapSides = bvhSign !== 0 && avatarSign !== 0 && bvhSign !== avatarSign;
-    }
+    // For now, force swap only for arm chain joints (Left<->Right) to fix mismatch
+    const swapArms = true;
 
     const allBVHJoints = BVHLoader.getAllJoints(bvhRoot);
     for (const joint of allBVHJoints) {
-      const targetName = swapSides ? this.swapLeftRight(joint.name) : joint.name;
+      const targetName =
+        swapArms && this.isArmJoint(joint.name)
+          ? this.swapLeftRight(joint.name)
+          : joint.name;
       const bone = armature.getObjectByName?.(targetName);
       if (!bone) continue;
 

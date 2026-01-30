@@ -57,39 +57,22 @@ export function BVHAnimationPlayer({ head, onError }: BVHAnimationPlayerProps) {
   }, [head]);
 
   return (
-    <div className="border border-[var(--outline)] rounded-lg p-3 text-sm space-y-2">
-      <div className="flex items-center gap-2">
-        <span className="font-semibold">BVH</span>
-        <span className="text-[var(--muted)] text-xs">
-          {currentAnimation ? (isPlaying ? 'playing' : 'loaded') : 'idle'}
-        </span>
-      </div>
-      <div className="flex gap-2">
-        <button
-          onClick={() => loadAndPlayBVH('/motions/test.bvh', 10)}
-          disabled={isLoading || !head}
-          className="flex-1 px-3 py-2 rounded bg-[var(--outline)] text-white hover:bg-white/10 disabled:opacity-60 transition-colors"
-        >
-          {isLoading ? 'Loading…' : 'Load & Play (10s)'}
-        </button>
-        <button
-          onClick={() => loadAndPlayBVH('/motions/test.bvh', 30)}
-          disabled={isLoading || !head}
-          className="flex-1 px-3 py-2 rounded bg-[var(--outline)] text-white hover:bg-white/10 disabled:opacity-60 transition-colors"
-        >
-          {isLoading ? 'Loading…' : 'Load & Play (30s)'}
-        </button>
-        <button
-          onClick={stopAnimation}
-          disabled={!head || !currentAnimation}
-          className="px-3 py-2 rounded bg-red-600 text-white hover:bg-red-700 disabled:opacity-50 transition-colors"
-        >
-          Stop
-        </button>
-      </div>
-      {debugInfo && (
-        <div className="text-xs text-[var(--muted)]">{debugInfo}</div>
-      )}
+    <div className="flex gap-1 text-xs">
+      <button
+        onClick={() => loadAndPlayBVH('/motions/test.bvh', 15)}
+        disabled={isLoading || !head}
+        className="flex-1 px-2 py-1.5 rounded bg-[var(--outline)] text-white hover:bg-white/10 disabled:opacity-60 transition-colors"
+      >
+        {isLoading ? 'Loading…' : 'Load & Play'}
+      </button>
+      <button
+        onClick={stopAnimation}
+        disabled={!head || !currentAnimation}
+        className="px-2 py-1.5 rounded bg-red-600 text-white hover:bg-red-700 disabled:opacity-50 transition-colors"
+      >
+        Stop
+      </button>
+      <span className="sr-only">{debugInfo || (isPlaying ? 'playing' : 'stopped')}</span>
     </div>
   );
 }
