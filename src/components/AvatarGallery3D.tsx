@@ -30,6 +30,7 @@ export function AvatarGallery3D({
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [mountedCount, setMountedCount] = useState(0);
+  const idleTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const containerMapRef = useRef<Map<string, HTMLDivElement>>(new Map());
   const headMapRef = useRef<Map<string, TalkingHead>>(new Map());
@@ -80,6 +81,19 @@ export function AvatarGallery3D({
       onCharacterChange(character);
       onHeadReady?.(selectedHead);
       onStreamReady(buildStreamHandler(selectedHead));
+
+      // Restart idle gesture loop for the active head
+      if (idleTimerRef.current) clearInterval(idleTimerRef.current);
+      const idleGestures = character.idleGestures ?? [];
+      if (idleGestures.length > 0) {
+        idleTimerRef.current = setInterval(() => {
+          // Skip if head is missing
+          const head = headMapRef.current.get(id);
+          if (!head) return;
+          const gesture = idleGestures[Math.floor(Math.random() * idleGestures.length)];
+          head.playGesture?.(gesture, 1.5, false, 1000);
+        }, 8000);
+      }
     },
     [buildStreamHandler, characters, onCharacterChange, onHeadReady, onStreamReady]
   );
@@ -130,7 +144,7 @@ export function AvatarGallery3D({
 
           await head.showAvatar({
             url: character.avatar,
-            body: "F",
+            body: character.body,
             avatarMood: character.mood,
             lipsyncLang: "en",
           });
@@ -161,6 +175,7 @@ export function AvatarGallery3D({
       onHeadReady?.(null);
       headMapRef.current.forEach((head) => head.stop?.());
       headMapRef.current.clear();
+      if (idleTimerRef.current) clearInterval(idleTimerRef.current);
     };
   }, [applySelection, characters, initialId, mountedCount, onHeadReady, onStreamReady]);
 

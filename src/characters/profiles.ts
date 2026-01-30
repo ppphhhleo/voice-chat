@@ -13,6 +13,8 @@ export const CHARACTERS: Record<string, Character> = {
     description: 'Professional and organized',
     avatar: '/avatars/Rex.glb',
     voice: 'Rex', // Confident, clear
+    gender: 'male',
+    body: 'M',
     personality: {
       openness: 45,          // Practical
       conscientiousness: 85, // Highly organized
@@ -28,7 +30,8 @@ export const CHARACTERS: Record<string, Character> = {
       favoriteGestures: ['index', 'ok', 'handup'],
       confidenceMultiplier: 1.0,
       intervalWords: 40
-    }
+    },
+    idleGestures: ['index']
   },
 
   maya: {
@@ -37,6 +40,8 @@ export const CHARACTERS: Record<string, Character> = {
     description: 'Warm and approachable',
     avatar: '/avatars/Ara.glb',
     voice: 'Ara', // Warm, friendly
+    gender: 'female',
+    body: 'F',
     personality: {
       openness: 70,          // Creative
       conscientiousness: 50, // Balanced
@@ -52,7 +57,8 @@ export const CHARACTERS: Record<string, Character> = {
       favoriteGestures: ['thumbup', 'namaste', 'ok'],
       confidenceMultiplier: 1.2,
       intervalWords: 30
-    }
+    },
+    idleGestures: ['thumbup', 'ok']
   },
 
   jordan: {
@@ -61,6 +67,8 @@ export const CHARACTERS: Record<string, Character> = {
     description: 'Imaginative and energetic',
     avatar: '/avatars/Eve.glb',
     voice: 'Eve', // Energetic, upbeat
+    gender: 'non-binary',
+    body: 'F',
     personality: {
       openness: 95,          // Highly creative
       conscientiousness: 40, // Flexible
@@ -76,7 +84,8 @@ export const CHARACTERS: Record<string, Character> = {
       favoriteGestures: ['handup', 'side', 'thumbup'],
       confidenceMultiplier: 1.3,
       intervalWords: 25
-    }
+    },
+    idleGestures: ['side']
   },
 
   sam: {
@@ -85,6 +94,8 @@ export const CHARACTERS: Record<string, Character> = {
     description: 'Logical and precise',
     avatar: '/avatars/Sal.glb',
     voice: 'Sal', // Smooth, balanced
+    gender: 'male',
+    body: 'M',
     personality: {
       openness: 55,          // Balanced
       conscientiousness: 75, // Organized
@@ -100,7 +111,8 @@ export const CHARACTERS: Record<string, Character> = {
       favoriteGestures: ['index', 'shrug'],
       confidenceMultiplier: 0.7,
       intervalWords: 60
-    }
+    },
+    idleGestures: ['shrug']
   },
 
   riley: {
@@ -109,6 +121,8 @@ export const CHARACTERS: Record<string, Character> = {
     description: 'Sensitive and thoughtful',
     avatar: '/avatars/Leo.glb',
     voice: 'Leo', // Authoritative but caring
+    gender: 'non-binary',
+    body: 'F',
     personality: {
       openness: 65,          // Creative
       conscientiousness: 55, // Balanced
@@ -124,7 +138,8 @@ export const CHARACTERS: Record<string, Character> = {
       favoriteGestures: ['namaste', 'ok', 'thumbup'],
       confidenceMultiplier: 0.9,
       intervalWords: 45
-    }
+    },
+    idleGestures: ['namaste']
   }
 };
 

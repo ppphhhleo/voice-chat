@@ -21,7 +21,7 @@ export function GestureCard({ character }: GestureCardProps) {
               {character.name}
             </div>
             <div className="text-[var(--muted)] text-[10px] leading-tight">
-              {behavior.style}
+              {behavior.style} · {character.gender}
             </div>
           </div>
         </div>
@@ -36,6 +36,14 @@ export function GestureCard({ character }: GestureCardProps) {
         <span className="text-[var(--muted)]">Favorites: </span>
         <span className="text-white">
           {behavior.favoriteGestures.join(", ")}
+        </span>
+      </div>
+      <div className="mt-1">
+        <span className="text-[var(--muted)]">Idle gestures: </span>
+        <span className="text-white">
+          {character.idleGestures?.length
+            ? character.idleGestures.join(", ")
+            : "None"}
         </span>
       </div>
       <div className="mt-1 flex items-center gap-2">

@@ -9,6 +9,7 @@ import { BigFive, Voice } from '@/types';
 export type CharacterId = 'alex' | 'maya' | 'jordan' | 'sam' | 'riley';
 
 export type MoodType = 'neutral' | 'happy' | 'sad' | 'angry' | 'love' | 'fear';
+export type Gender = 'male' | 'female' | 'non-binary';
 
 export interface GestureBehavior {
   frequency: 'very low' | 'low' | 'moderate' | 'high' | 'very high';
@@ -24,10 +25,13 @@ export interface Character {
   description: string;
   avatar: string; // Path to GLB file
   voice: Voice;
+  gender: Gender;
+  body: 'M' | 'F';
   personality: BigFive;
   mood: MoodType;
   primaryColor: string; // Hex color for theming
   gestureBehavior: GestureBehavior;
+  idleGestures?: string[]; // Gestures to occasionally play while idle
 }
 
 export interface CharacterState {
